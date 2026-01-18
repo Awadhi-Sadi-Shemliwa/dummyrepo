@@ -400,7 +400,7 @@ class ARCAPITester:
                 print(f"  - {failure}")
         
         print(f"\n📝 Created Resources:")
-        print(f"  - Projects: {len(self.created_resources['projects'])}")
+        print(f"  - Contracts: {len(self.created_resources['contracts'])}")
         print(f"  - Tasks: {len(self.created_resources['tasks'])}")
         print(f"  - Users: {len(self.created_resources['users'])}")
         
