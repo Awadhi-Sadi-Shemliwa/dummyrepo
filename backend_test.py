@@ -341,20 +341,26 @@ class ARCAPITester:
             # Test users
             users = self.test_get_users()
             
-            # Test projects
-            projects = self.test_get_projects()
+            # Test contracts
+            contracts = self.test_get_contracts()
             
-            # Create project (if allowed)
-            project_id = self.test_create_project()
+            # Create contract (if Finance Officer or CEO)
+            contract_id = None
+            if self.current_user.get('role') in ['ceo', 'finance']:
+                contract_id = self.test_create_contract()
+            
+            # Test operations setup (if Operations Officer or CEO and we have a contract)
+            if contract_id and self.current_user.get('role') in ['ceo', 'operations']:
+                self.test_operations_setup(contract_id)
             
             # Test tasks
             tasks = self.test_get_tasks()
             
-            # Create task (if we have a project)
+            # Create task (if we have a contract)
             task_id = None
-            if project_id:
+            if contract_id:
                 assigned_user = users[0]['id'] if users else None
-                task_id = self.test_create_task(project_id, assigned_user)
+                task_id = self.test_create_task(contract_id, assigned_user)
             
             # Test task operations
             if task_id:
