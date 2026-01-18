@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-ARC Project Management System - Backend API Testing
-Tests all API endpoints for authentication, users, projects, tasks, and dashboard functionality.
+ARC Tanzania Project Management System - Backend API Testing
+Tests all API endpoints for authentication, users, contracts, tasks, and dashboard functionality.
+Focuses on the specific flowchart-based workflow and profit calculations.
 """
 
 import requests
@@ -19,7 +20,7 @@ class ARCAPITester:
         self.tests_passed = 0
         self.failed_tests = []
         self.created_resources = {
-            'projects': [],
+            'contracts': [],
             'tasks': [],
             'users': []
         }
