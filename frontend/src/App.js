@@ -1,15 +1,47 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line
+} from 'recharts';
 import {
   LayoutDashboard, FileText, CheckSquare, Users, LogOut,
-  Plus, Bell, Menu, X, Calendar, Clock, MessageSquare,
-  TrendingUp, AlertTriangle, Activity, DollarSign, Building2,
-  Edit2, Trash2, ChevronRight, Settings, BarChart3, Briefcase,
-  User, Target
+  Plus, Menu, X, Calendar, Clock, MessageSquare, TrendingUp, Activity,
+  DollarSign, Eye, Printer, Edit2, Trash2, Settings, RefreshCw, Search,
+  ChevronRight, Play, Pause, AlertTriangle, CheckCircle, XCircle
 } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { authAPI, usersAPI, contractsAPI, tasksAPI, dashboardAPI } from './api';
 import './App.css';
+
+// Animation variants
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.3 } }
+};
+
+// Chart colors
+const COLORS = {
+  green: '#22C55E',
+  red: '#EF4444',
+  orange: '#F97316',
+  blue: '#3B82F6',
+  purple: '#8B5CF6',
+  gold: '#B8860B',
+  gray: '#6B7280',
+  teal: '#14B8A6'
+};
 
 // ==================== AUTH CONTEXT ====================
 const AuthContext = createContext(null);
@@ -73,18 +105,57 @@ const ProtectedRoute = ({ children }) => {
 // ==================== LOADING SCREEN ====================
 const LoadingScreen = () => (
   <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8F9FA' }}>
-    <div className="spinner"></div>
+    <motion.div 
+      className="spinner"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+    />
   </div>
 );
 
 // ==================== FORMAT CURRENCY ====================
 const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-TZ', {
-    style: 'currency',
-    currency: 'TZS',
-    minimumFractionDigits: 0
-  }).format(amount || 0);
+  return new Intl.NumberFormat('en-TZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0);
 };
+
+// ==================== ANIMATED STAT CARD ====================
+const StatCard = ({ icon: Icon, value, label, color = 'green', delay = 0 }) => (
+  <motion.div
+    variants={fadeInUp}
+    initial="hidden"
+    animate="visible"
+    transition={{ delay }}
+    className="card stat-card"
+    style={{ borderLeft: `4px solid ${COLORS[color]}` }}
+    whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ delay: delay + 0.2, type: 'spring' }}
+        style={{ 
+          width: '48px', height: '48px', borderRadius: '12px', 
+          background: `${COLORS[color]}15`, display: 'flex', 
+          alignItems: 'center', justifyContent: 'center' 
+        }}
+      >
+        <Icon size={24} color={COLORS[color]} />
+      </motion.div>
+      <div>
+        <motion.p 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: delay + 0.3 }}
+          style={{ fontSize: '28px', fontWeight: '700', color: '#212529' }}
+        >
+          {value}
+        </motion.p>
+        <p style={{ fontSize: '13px', color: '#6C757D' }}>{label}</p>
+      </div>
+    </div>
+  </motion.div>
+);
 
 // ==================== LOGIN PAGE ====================
 const LoginPage = () => {
@@ -114,47 +185,59 @@ const LoginPage = () => {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #F8F9FA 0%, #E9ECEF 100%)', padding: '20px' }}>
-      <div className="card" style={{ maxWidth: '420px', width: '100%' }}>
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="card" 
+        style={{ maxWidth: '420px', width: '100%' }}
+      >
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <img src="/images/logo.png" alt="ARC Logo" style={{ height: '60px', marginBottom: '16px' }} />
+          <motion.img 
+            src="/images/logo.png" 
+            alt="ARC Logo" 
+            style={{ height: '60px', marginBottom: '16px' }}
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 0.2 }}
+          />
           <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#212529' }}>Project Management System</h1>
           <p style={{ color: '#6C757D', fontSize: '14px' }}>Sign in to manage contracts and tasks</p>
         </div>
 
-        {error && (
-          <div style={{ background: '#FFEBEE', border: '1px solid #FFCDD2', borderRadius: '8px', padding: '12px', marginBottom: '20px', color: '#C62828', fontSize: '14px' }}>
-            {error}
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              style={{ background: '#FFEBEE', border: '1px solid #FFCDD2', borderRadius: '8px', padding: '12px', marginBottom: '20px', color: '#C62828', fontSize: '14px' }}
+            >
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '14px', color: '#495057', marginBottom: '8px', fontWeight: '500' }}>Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-              placeholder="Enter your email"
-              required
-              data-testid="login-email"
-            />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder="Enter your email" required data-testid="login-email" />
           </div>
           <div style={{ marginBottom: '24px' }}>
             <label style={{ display: 'block', fontSize: '14px', color: '#495057', marginBottom: '8px', fontWeight: '500' }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input"
-              placeholder="Enter your password"
-              required
-              data-testid="login-password"
-            />
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder="Enter your password" required data-testid="login-password" />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading} data-testid="login-submit">
+          <motion.button 
+            type="submit" 
+            className="btn btn-primary" 
+            style={{ width: '100%' }} 
+            disabled={loading}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            data-testid="login-submit"
+          >
             {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+          </motion.button>
         </form>
 
         <div style={{ marginTop: '24px', padding: '16px', background: '#F8F9FA', borderRadius: '8px', fontSize: '13px' }}>
@@ -163,7 +246,7 @@ const LoginPage = () => {
           <p style={{ color: '#6C757D' }}><strong>Finance:</strong> maureen.bangu@ar-consurt-world.com / 12345678</p>
           <p style={{ color: '#6C757D' }}><strong>Operations:</strong> juma.h.kasele@gmail.com / 11223344</p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
@@ -191,23 +274,40 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   return (
     <>
-      {isOpen && <div className="modal-overlay" style={{ zIndex: 39 }} onClick={onClose} />}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay" 
+            style={{ zIndex: 39 }} 
+            onClick={onClose} 
+          />
+        )}
+      </AnimatePresence>
       <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
           <img src="/images/logo.png" alt="ARC" style={{ height: '40px' }} />
         </div>
 
         <nav className="sidebar-nav">
-          {getNavItems().map(item => (
-            <Link
+          {getNavItems().map((item, index) => (
+            <motion.div
               key={item.path}
-              to={item.path}
-              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-              onClick={onClose}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
             >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-            </Link>
+              <Link
+                to={item.path}
+                className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+                onClick={onClose}
+              >
+                <item.icon size={20} />
+                <span>{item.label}</span>
+              </Link>
+            </motion.div>
           ))}
         </nav>
 
@@ -230,649 +330,691 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 // ==================== HEADER ====================
-const Header = ({ onMenuClick, title }) => {
+const Header = ({ onMenuClick, title, subtitle }) => {
   const { user } = useAuth();
+  const [lang, setLang] = useState('English');
   
   return (
-    <header className="header">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <motion.header 
+      className="header"
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={onMenuClick} className="btn btn-secondary menu-toggle" style={{ padding: '8px', display: 'none' }}>
+          <button onClick={onMenuClick} className="btn btn-secondary menu-toggle" style={{ padding: '8px' }}>
             <Menu size={20} />
           </button>
-          <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#212529' }}>{title}</h1>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#6C757D', marginBottom: '4px' }}>
+              <span>Home</span> <ChevronRight size={14} /> <span>{title}</span>
+            </div>
+            <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#212529' }}>{title}</h1>
+            {subtitle && <p style={{ fontSize: '13px', color: '#6C757D' }}>{subtitle}</p>}
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className={`role-badge role-${user?.role}`}>{user?.role}</span>
-          <img src={user?.avatar} alt={user?.name} className="avatar" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <select value={lang} onChange={(e) => setLang(e.target.value)} className="input" style={{ width: 'auto', padding: '8px 32px 8px 12px', fontSize: '13px' }}>
+            <option value="English">English</option>
+            <option value="Kiswahili">Kiswahili</option>
+          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', color: '#6C757D' }}>Welcome,</span>
+            <span style={{ fontWeight: '600', color: '#212529' }}>{user?.name}</span>
+            <span className={`role-badge role-${user?.role}`}>({user?.role})</span>
+          </div>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 };
 
-// ==================== CEO EXECUTIVE DASHBOARD ====================
-const DashboardPage = () => {
-  const { user } = useAuth();
+// ==================== CEO DASHBOARD ====================
+const CEODashboard = () => {
   const [stats, setStats] = useState(null);
   const [contracts, setContracts] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [teamPerformance, setTeamPerformance] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [statsRes, contractsRes, activitiesRes] = await Promise.all([
+      const [statsRes, contractsRes] = await Promise.all([
         dashboardAPI.getStats(),
-        contractsAPI.getAll(),
-        dashboardAPI.getActivities({ limit: 10 })
+        contractsAPI.getAll()
       ]);
       setStats(statsRes.data);
       setContracts(contractsRes.data);
-      setActivities(activitiesRes.data);
-
-      if (user?.role === 'ceo' || user?.role === 'operations') {
-        const teamRes = await dashboardAPI.getTeamPerformance();
-        setTeamPerformance(teamRes.data);
-      }
-    } catch (err) {
-      console.error('Failed to load dashboard:', err);
-    }
-    setLoading(false);
-  };
-
-  if (loading) return <LoadingScreen />;
-
-  return (
-    <div style={{ padding: '24px' }} className="animate-fade-in">
-      {/* Welcome Card */}
-      <div className="card card-gold" style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px', color: '#212529' }}>
-              {user?.role === 'ceo' ? 'Executive Dashboard' : `Welcome, ${user?.name?.split(' ')[0]}`}
-            </h2>
-            <p style={{ color: '#6C757D' }}>
-              {user?.role === 'ceo' && 'Overview of all contracts, profits, and team performance'}
-              {user?.role === 'finance' && 'Create and manage contracts'}
-              {user?.role === 'operations' && 'Configure project execution and staff'}
-              {user?.role === 'worker' && 'View your assigned tasks'}
-            </p>
-          </div>
-          {user?.role === 'finance' && (
-            <Link to="/contracts" className="btn btn-primary">
-              <Plus size={18} />
-              New Contract
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card stat-card">
-          <FileText size={24} color="#B8860B" style={{ marginBottom: '8px' }} />
-          <div className="stat-value">{stats?.contracts?.total || 0}</div>
-          <div className="stat-label">Total Contracts</div>
-        </div>
-        <div className="card stat-card">
-          <DollarSign size={24} color="#2E7D32" style={{ marginBottom: '8px' }} />
-          <div className="stat-value" style={{ fontSize: '20px', color: '#2E7D32' }}>{formatCurrency(stats?.contracts?.total_value)}</div>
-          <div className="stat-label">Total Value</div>
-        </div>
-        <div className="card stat-card">
-          <Target size={24} color="#B8860B" style={{ marginBottom: '8px' }} />
-          <div className="stat-value" style={{ fontSize: '20px', color: '#B8860B' }}>{formatCurrency(stats?.contracts?.total_target_profit)}</div>
-          <div className="stat-label">Target Profit (30%)</div>
-        </div>
-        <div className="card stat-card">
-          <TrendingUp size={24} color={stats?.contracts?.total_actual_profit >= 0 ? '#2E7D32' : '#C62828'} style={{ marginBottom: '8px' }} />
-          <div className="stat-value" style={{ fontSize: '20px', color: stats?.contracts?.total_actual_profit >= 0 ? '#2E7D32' : '#C62828' }}>
-            {formatCurrency(stats?.contracts?.total_actual_profit)}
-          </div>
-          <div className="stat-label">Actual Profit</div>
-        </div>
-      </div>
-
-      {/* Profit Status Breakdown (from flowchart) */}
-      {user?.role === 'ceo' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-          <div className="card" style={{ borderLeft: '4px solid #2E7D32' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#2E7D32' }} />
-              <div>
-                <p style={{ fontSize: '24px', fontWeight: '700', color: '#2E7D32' }}>{stats?.profit_status?.green || 0}</p>
-                <p style={{ fontSize: '12px', color: '#6C757D' }}>Actual ≥ Target</p>
-              </div>
-            </div>
-          </div>
-          <div className="card" style={{ borderLeft: '4px solid #E65100' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#E65100' }} />
-              <div>
-                <p style={{ fontSize: '24px', fontWeight: '700', color: '#E65100' }}>{stats?.profit_status?.orange || 0}</p>
-                <p style={{ fontSize: '12px', color: '#6C757D' }}>Below Target</p>
-              </div>
-            </div>
-          </div>
-          <div className="card" style={{ borderLeft: '4px solid #C62828' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#C62828' }} />
-              <div>
-                <p style={{ fontSize: '24px', fontWeight: '700', color: '#C62828' }}>{stats?.profit_status?.red || 0}</p>
-                <p style={{ fontSize: '12px', color: '#6C757D' }}>Loss (Actual &lt; 0)</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: user?.role === 'ceo' ? '2fr 1fr' : '1fr', gap: '24px' }}>
-        {/* Recent Contracts */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '600' }}>Recent Contracts</h3>
-            <Link to="/contracts" style={{ color: '#B8860B', fontSize: '14px', textDecoration: 'none' }}>View All →</Link>
-          </div>
-          {contracts.length === 0 ? (
-            <p style={{ color: '#6C757D', textAlign: 'center', padding: '20px' }}>No contracts yet</p>
-          ) : (
-            <div>
-              {contracts.slice(0, 5).map(contract => (
-                <div key={contract.id} className="contract-card" style={{ padding: '16px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <div>
-                      <span className="contract-number">{contract.contract_number}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                        <span className={`status-badge status-${contract.project_status?.toLowerCase()}`}>{contract.project_status}</span>
-                        <span className={`priority-badge profit-${contract.profit_status}`}>
-                          {contract.profit_status === 'green' ? '✓ Profitable' : contract.profit_status === 'orange' ? '! Below Target' : '✗ Loss'}
-                        </span>
-                      </div>
-                    </div>
-                    <span style={{ fontWeight: '700', color: '#212529' }}>{formatCurrency(contract.contract_value)}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#6C757D' }}>
-                    <span>Target: {formatCurrency(contract.target_profit)}</span>
-                    <span style={{ color: contract.actual_profit >= 0 ? '#2E7D32' : '#C62828' }}>
-                      Actual: {formatCurrency(contract.actual_profit)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right Column - CEO Only */}
-        {user?.role === 'ceo' && (
-          <div className="card">
-            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Team Performance</h3>
-            {teamPerformance.length === 0 ? (
-              <p style={{ color: '#6C757D', textAlign: 'center', padding: '20px' }}>No team data</p>
-            ) : (
-              <div>
-                {teamPerformance.slice(0, 5).map(member => (
-                  <div key={member.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 0', borderBottom: '1px solid #DEE2E6' }}>
-                    <img src={member.avatar} alt={member.name} className="avatar avatar-sm" />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: '500', fontSize: '13px' }}>{member.name}</p>
-                      <div className="progress-bar" style={{ height: '4px', marginTop: '4px' }}>
-                        <div className="progress-fill" style={{ width: `${member.completion_rate}%` }} />
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#B8860B' }}>{member.completion_rate}%</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ==================== CONTRACTS PAGE ====================
-const ContractsPage = () => {
-  const { user } = useAuth();
-  const [contracts, setContracts] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showOpsModal, setShowOpsModal] = useState(false);
-  const [selectedContract, setSelectedContract] = useState(null);
-  
-  // Finance form (as per flowchart)
-  const [financeForm, setFinanceForm] = useState({
-    contract_value: '', staff_count: '', tax: '', overhead_cost: '',
-    commission: '', admin_fee: '', staff_cost: ''
-  });
-  
-  // Operations form (as per flowchart)
-  const [opsForm, setOpsForm] = useState({
-    project_start_date: '', project_end_date: '', project_type: 'General',
-    duration_type: 'Non-Recurring', manual_status: '', inactive_reason: ''
-  });
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [contractsRes, usersRes] = await Promise.all([
-        contractsAPI.getAll(),
-        usersAPI.getAll()
-      ]);
-      setContracts(contractsRes.data);
-      setUsers(usersRes.data);
     } catch (err) {
       console.error('Failed to load data:', err);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  if (loading) return <LoadingScreen />;
+
+  // Chart data
+  const profitComparisonData = contracts.slice(0, 5).map(c => ({
+    name: c.contract_number,
+    'Target Profit': c.target_profit,
+    'Actual Profit': c.actual_profit
+  }));
+
+  const statusDistribution = [
+    { name: 'Active', value: contracts.filter(c => c.project_status === 'Active').length, color: COLORS.green },
+    { name: 'Expired', value: contracts.filter(c => c.project_status === 'Expired').length, color: COLORS.red },
+    { name: 'Inactive', value: contracts.filter(c => c.project_status === 'Inactive').length, color: COLORS.orange },
+    { name: 'Pending', value: contracts.filter(c => c.project_status === 'Pending').length, color: COLORS.gray }
+  ].filter(d => d.value > 0);
+
+  const staffAllocationData = contracts.slice(0, 5).map(c => ({
+    name: c.contract_number,
+    staff: c.staff_count || 0
+  }));
+
+  const filteredContracts = filter === 'all' ? contracts : contracts.filter(c => c.project_status?.toLowerCase() === filter);
+
+  const avgProfitMargin = contracts.length > 0 
+    ? ((contracts.reduce((sum, c) => sum + (c.actual_profit / c.contract_value * 100 || 0), 0)) / contracts.length).toFixed(2)
+    : 0;
+
+  return (
+    <motion.div 
+      style={{ padding: '24px' }}
+      initial="hidden"
+      animate="visible"
+      variants={staggerContainer}
+    >
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <StatCard icon={DollarSign} value={formatCurrency(stats?.contracts?.total_value)} label="Total Contract Value" color="green" delay={0} />
+        <StatCard icon={TrendingUp} value={formatCurrency(stats?.contracts?.total_actual_profit)} label="Total Actual Profit" color="blue" delay={0.1} />
+        <StatCard icon={CheckCircle} value={stats?.contracts?.active || 0} label="Active Contracts" color="green" delay={0.2} />
+        <StatCard icon={Users} value={stats?.team?.total_users || 0} label="Total Staff Allocated" color="purple" delay={0.3} />
+        <StatCard icon={Activity} value={`${avgProfitMargin}%`} label="Average Profit Margin" color="gold" delay={0.4} />
+      </div>
+
+      {/* Filter Tabs */}
+      <motion.div variants={fadeInUp} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
+        {[{ id: 'all', label: 'All Contracts', icon: FileText }, { id: 'active', label: 'Active', icon: Play }, { id: 'expired', label: 'Expired', icon: XCircle }, { id: 'inactive', label: 'Inactive', icon: Pause }].map(f => (
+          <motion.button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`btn ${filter === f.id ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <f.icon size={16} />
+            {f.label}
+          </motion.button>
+        ))}
+        <button onClick={loadData} className="btn btn-secondary" style={{ marginLeft: 'auto' }}>
+          <RefreshCw size={16} /> Refresh
+        </button>
+      </motion.div>
+
+      {/* Charts Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+        {/* Profit Comparison Chart */}
+        <motion.div variants={scaleIn} className="card">
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Profit Comparison</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={profitComparisonData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E9ECEF" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v/1000000).toFixed(1)}M`} />
+              <Tooltip formatter={(v) => formatCurrency(v)} />
+              <Legend />
+              <Bar dataKey="Target Profit" fill={COLORS.blue} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Actual Profit" fill={COLORS.green} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Contract Status Distribution */}
+        <motion.div variants={scaleIn} className="card">
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Contract Status Distribution</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie data={statusDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                {statusDistribution.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Staff Allocation */}
+        <motion.div variants={scaleIn} className="card">
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Staff Allocation Overview</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={staffAllocationData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#E9ECEF" />
+              <XAxis type="number" tick={{ fontSize: 11 }} />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
+              <Tooltip />
+              <Bar dataKey="staff" fill={COLORS.purple} radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
+
+      {/* Operations Project Overview Table */}
+      <motion.div variants={fadeInUp} className="card">
+        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '20px' }}>Operations Project Overview</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#F8F9FA' }}>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Contract #</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Client Name</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Project Type</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Start Date</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>End Date</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Status</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Profit Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredContracts.map((contract, index) => (
+                <motion.tr 
+                  key={contract.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  style={{ borderBottom: '1px solid #DEE2E6' }}
+                >
+                  <td style={{ padding: '12px', fontSize: '14px', color: COLORS.blue, fontWeight: '500' }}>{contract.contract_number}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.client_name || 'N/A'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_type || 'General'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_start_date ? format(new Date(contract.project_start_date), 'yyyy-MM-dd') : '-'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_end_date ? format(new Date(contract.project_end_date), 'yyyy-MM-dd') : '-'}</td>
+                  <td style={{ padding: '12px' }}>
+                    <span className={`status-badge status-${contract.project_status?.toLowerCase()}`}>{contract.project_status}</span>
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <span className={`priority-badge profit-${contract.profit_status}`}>
+                      {contract.profit_status === 'green' ? '✓ Profitable' : contract.profit_status === 'orange' ? 'Below Target' : 'Loss'}
+                    </span>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredContracts.length === 0 && (
+            <p style={{ textAlign: 'center', padding: '40px', color: '#6C757D' }}>No contracts found</p>
+          )}
+        </div>
+        <p style={{ fontSize: '13px', color: '#6C757D', marginTop: '16px' }}>Showing {filteredContracts.length} of {contracts.length} records</p>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// ==================== OPERATIONS DASHBOARD ====================
+const OperationsDashboard = () => {
+  const [contracts, setContracts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await contractsAPI.getAll();
+      setContracts(res.data);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  if (loading) return <LoadingScreen />;
+
+  const activeCount = contracts.filter(c => c.project_status === 'Active').length;
+  const completedCount = contracts.filter(c => c.project_status === 'Expired').length;
+  const delayedCount = 0; // Add logic for delayed
+  const inactiveCount = contracts.filter(c => c.project_status === 'Inactive').length;
+  const totalValue = contracts.reduce((sum, c) => sum + (c.contract_value || 0), 0);
+
+  const filteredContracts = contracts
+    .filter(c => filter === 'all' || c.project_status?.toLowerCase() === filter)
+    .filter(c => !search || c.contract_number?.toLowerCase().includes(search.toLowerCase()) || c.client_name?.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <motion.div style={{ padding: '24px' }} initial="hidden" animate="visible" variants={staggerContainer}>
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <StatCard icon={Play} value={activeCount} label="Active Operations" color="green" delay={0} />
+        <StatCard icon={CheckCircle} value={completedCount} label="Completed" color="green" delay={0.1} />
+        <StatCard icon={AlertTriangle} value={delayedCount} label="Delayed" color="red" delay={0.2} />
+        <StatCard icon={Pause} value={inactiveCount} label="Inactive" color="gray" delay={0.3} />
+        <StatCard icon={DollarSign} value={`$ ${formatCurrency(totalValue)}`} label="Total Contract Value" color="green" delay={0.4} />
+      </div>
+
+      {/* Filters */}
+      <motion.div variants={fadeInUp} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
+        {[{ id: 'all', label: 'All Operations', icon: FileText }, { id: 'active', label: 'Active', icon: Play }, { id: 'expired', label: 'Completed', icon: CheckCircle }, { id: 'inactive', label: 'Inactive', icon: Pause }].map(f => (
+          <motion.button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`btn ${filter === f.id ? 'btn-primary' : 'btn-secondary'}`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <f.icon size={16} /> {f.label}
+          </motion.button>
+        ))}
+        <div style={{ flex: 1, minWidth: '200px', display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#6C757D' }} />
+            <input 
+              type="text" 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              className="input" 
+              placeholder="Search by contract number, client name..." 
+              style={{ paddingLeft: '40px' }}
+            />
+          </div>
+          <Link to="/contracts" className="btn btn-primary">
+            <Plus size={18} /> New Operations
+          </Link>
+        </div>
+      </motion.div>
+
+      {/* Operations Table */}
+      <motion.div variants={fadeInUp} className="card">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#374151', color: 'white' }}>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>Invoice ID</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>Contract #</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>Client Name</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>Project Type</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>Start Date</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>End Date</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px' }}>Status</th>
+                <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredContracts.map((contract, index) => (
+                <motion.tr 
+                  key={contract.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.03 }}
+                  style={{ borderBottom: '1px solid #DEE2E6', background: index % 2 === 0 ? 'white' : '#F8F9FA' }}
+                >
+                  <td style={{ padding: '12px', fontSize: '14px', color: COLORS.blue }}>OPS-{String(index + 1).padStart(5, '0')}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.contract_number}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.client_name || 'N/A'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_type || 'General'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_start_date ? format(new Date(contract.project_start_date), 'yyyy-MM-dd') : '-'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_end_date ? format(new Date(contract.project_end_date), 'yyyy-MM-dd') : '-'}</td>
+                  <td style={{ padding: '12px' }}>
+                    <span className={`status-badge status-${contract.project_status?.toLowerCase()}`}>{contract.project_status}</span>
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#8B5CF6', color: 'white' }}><Eye size={14} /></motion.button>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#F59E0B', color: 'white' }}><Edit2 size={14} /></motion.button>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#EF4444', color: 'white' }}><Trash2 size={14} /></motion.button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ fontSize: '13px', color: '#6C757D', marginTop: '16px' }}>Showing {filteredContracts.length} of {contracts.length} records</p>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// ==================== FINANCE DASHBOARD ====================
+const FinanceDashboard = () => {
+  const [contracts, setContracts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    contract_value: '', staff_count: '', tax: '', overhead_cost: '', commission: '', admin_fee: '', staff_cost: '', client_name: ''
+  });
+
+  const loadData = useCallback(async () => {
+    try {
+      const res = await contractsAPI.getAll();
+      setContracts(res.data);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleCreateContract = async (e) => {
     e.preventDefault();
     try {
       await contractsAPI.create({
-        contract_value: parseFloat(financeForm.contract_value) || 0,
-        staff_count: parseInt(financeForm.staff_count) || 0,
-        tax: parseFloat(financeForm.tax) || 0,
-        overhead_cost: parseFloat(financeForm.overhead_cost) || 0,
-        commission: parseFloat(financeForm.commission) || 0,
-        admin_fee: parseFloat(financeForm.admin_fee) || 0,
-        staff_cost: parseFloat(financeForm.staff_cost) || 0
+        contract_value: parseFloat(formData.contract_value) || 0,
+        staff_count: parseInt(formData.staff_count) || 0,
+        tax: parseFloat(formData.tax) || 0,
+        overhead_cost: parseFloat(formData.overhead_cost) || 0,
+        commission: parseFloat(formData.commission) || 0,
+        admin_fee: parseFloat(formData.admin_fee) || 0,
+        staff_cost: parseFloat(formData.staff_cost) || 0
       });
-      setShowCreateModal(false);
-      setFinanceForm({ contract_value: '', staff_count: '', tax: '', overhead_cost: '', commission: '', admin_fee: '', staff_cost: '' });
+      setShowModal(false);
+      setFormData({ contract_value: '', staff_count: '', tax: '', overhead_cost: '', commission: '', admin_fee: '', staff_cost: '', client_name: '' });
       loadData();
     } catch (err) {
       alert(err.response?.data?.detail || 'Failed to create contract');
     }
   };
 
-  const handleOpsSetup = async (e) => {
-    e.preventDefault();
+  if (loading) return <LoadingScreen />;
+
+  const activeCount = contracts.filter(c => c.project_status === 'Active').length;
+  const expiredCount = contracts.filter(c => c.project_status === 'Expired').length;
+  const totalProfit = contracts.reduce((sum, c) => sum + (c.actual_profit || 0), 0);
+  const totalValue = contracts.reduce((sum, c) => sum + (c.contract_value || 0), 0);
+  const totalStaff = contracts.reduce((sum, c) => sum + (c.staff_count || 0), 0);
+
+  const filteredContracts = filter === 'all' ? contracts : contracts.filter(c => c.project_status?.toLowerCase() === filter);
+
+  return (
+    <motion.div style={{ padding: '24px' }} initial="hidden" animate="visible" variants={staggerContainer}>
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <StatCard icon={CheckCircle} value={activeCount} label="Active Projects" color="green" delay={0} />
+        <StatCard icon={XCircle} value={expiredCount} label="Expired Projects" color="red" delay={0.1} />
+        <StatCard icon={TrendingUp} value={formatCurrency(totalProfit)} label="Total Profit" color="green" delay={0.2} />
+        <StatCard icon={DollarSign} value={formatCurrency(totalValue)} label="Contract Value" color="gold" delay={0.3} />
+        <StatCard icon={Users} value={totalStaff} label="Staff Allocated" color="purple" delay={0.4} />
+      </div>
+
+      {/* Filters */}
+      <motion.div variants={fadeInUp} style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px', alignItems: 'center' }}>
+        {[{ id: 'all', label: 'All Contracts', icon: FileText }, { id: 'active', label: 'Active', icon: CheckCircle }, { id: 'expired', label: 'Expired', icon: XCircle }, { id: 'inactive', label: 'Inactive', icon: Pause }].map(f => (
+          <motion.button
+            key={f.id}
+            onClick={() => setFilter(f.id)}
+            className={`btn ${filter === f.id ? 'btn-primary' : 'btn-secondary'}`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <f.icon size={16} /> {f.label}
+          </motion.button>
+        ))}
+        <motion.button onClick={() => setShowModal(true)} className="btn btn-primary" style={{ marginLeft: 'auto' }} whileHover={{ scale: 1.02 }} data-testid="create-contract-btn">
+          <Plus size={18} /> New Contract
+        </motion.button>
+      </motion.div>
+
+      {/* Contract Table */}
+      <motion.div variants={fadeInUp} className="card">
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#F8F9FA' }}>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Contract Number</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Client Name</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Effective Date</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>End Date</th>
+                <th style={{ padding: '12px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Contract Value</th>
+                <th style={{ padding: '12px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Actual Profit</th>
+                <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Status</th>
+                <th style={{ padding: '12px', textAlign: 'center', fontSize: '12px', fontWeight: '600', color: '#6C757D', borderBottom: '2px solid #DEE2E6' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredContracts.map((contract, index) => (
+                <motion.tr 
+                  key={contract.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.03 }}
+                  style={{ borderBottom: '1px solid #DEE2E6' }}
+                >
+                  <td style={{ padding: '12px', fontSize: '14px', fontWeight: '500' }}>{contract.contract_number}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.client_name || 'N/A'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_start_date ? format(new Date(contract.project_start_date), 'yyyy-MM-dd') : '-'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px' }}>{contract.project_end_date ? format(new Date(contract.project_end_date), 'yyyy-MM-dd') : '-'}</td>
+                  <td style={{ padding: '12px', fontSize: '14px', textAlign: 'right', fontWeight: '500' }}>{formatCurrency(contract.contract_value)}</td>
+                  <td style={{ padding: '12px', fontSize: '14px', textAlign: 'right', fontWeight: '500', color: contract.actual_profit >= 0 ? COLORS.green : COLORS.red }}>{formatCurrency(contract.actual_profit)}</td>
+                  <td style={{ padding: '12px' }}>
+                    <span className={`status-badge status-${contract.project_status?.toLowerCase()}`}>{contract.project_status}</span>
+                  </td>
+                  <td style={{ padding: '12px' }}>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#8B5CF6', color: 'white' }}><Eye size={14} /></motion.button>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#8B5CF6', color: 'white' }}><Printer size={14} /></motion.button>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#F59E0B', color: 'white' }}><Edit2 size={14} /></motion.button>
+                      <motion.button whileHover={{ scale: 1.1 }} className="btn" style={{ padding: '6px', background: '#EF4444', color: 'white' }}><Trash2 size={14} /></motion.button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ fontSize: '13px', color: '#6C757D', marginTop: '16px' }}>Showing {filteredContracts.length} of {contracts.length} records</p>
+      </motion.div>
+
+      {/* Create Contract Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div 
+            className="modal-overlay" 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowModal(false)}
+          >
+            <motion.div 
+              className="modal" 
+              style={{ maxWidth: '600px' }}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Create New Contract</h3>
+                <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+              </div>
+              <form onSubmit={handleCreateContract}>
+                <div className="modal-body">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Contract Value *</label>
+                      <input type="number" value={formData.contract_value} onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })} className="input" placeholder="0" required />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Staff Count</label>
+                      <input type="number" value={formData.staff_count} onChange={(e) => setFormData({ ...formData, staff_count: e.target.value })} className="input" placeholder="0" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Staff Cost</label>
+                      <input type="number" value={formData.staff_cost} onChange={(e) => setFormData({ ...formData, staff_cost: e.target.value })} className="input" placeholder="0" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Tax</label>
+                      <input type="number" value={formData.tax} onChange={(e) => setFormData({ ...formData, tax: e.target.value })} className="input" placeholder="0" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Overhead Cost</label>
+                      <input type="number" value={formData.overhead_cost} onChange={(e) => setFormData({ ...formData, overhead_cost: e.target.value })} className="input" placeholder="0" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Commission</label>
+                      <input type="number" value={formData.commission} onChange={(e) => setFormData({ ...formData, commission: e.target.value })} className="input" placeholder="0" />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Admin Fee</label>
+                      <input type="number" value={formData.admin_fee} onChange={(e) => setFormData({ ...formData, admin_fee: e.target.value })} className="input" placeholder="0" />
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
+                  <button type="submit" className="btn btn-primary">Create Contract</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// ==================== WORKER DASHBOARD ====================
+const WorkerDashboard = () => {
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
     try {
-      await contractsAPI.updateOperations(selectedContract.id, opsForm);
-      setShowOpsModal(false);
-      setSelectedContract(null);
-      loadData();
+      const res = await tasksAPI.getAll({ assigned_to: user?.id });
+      setTasks(res.data);
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to update operations');
+      console.error('Failed to load tasks:', err);
     }
-  };
+    setLoading(false);
+  }, [user?.id]);
 
-  const openOpsModal = (contract) => {
-    setSelectedContract(contract);
-    setOpsForm({
-      project_start_date: contract.project_start_date?.split('T')[0] || '',
-      project_end_date: contract.project_end_date?.split('T')[0] || '',
-      project_type: contract.project_type || 'General',
-      duration_type: contract.duration_type || 'Non-Recurring',
-      manual_status: contract.manual_status || '',
-      inactive_reason: contract.inactive_reason || ''
-    });
-    setShowOpsModal(true);
-  };
-
-  const canCreateContract = ['ceo', 'finance'].includes(user?.role);
-  const canConfigureOps = ['ceo', 'operations'].includes(user?.role);
+  useEffect(() => { loadData(); }, [loadData]);
 
   if (loading) return <LoadingScreen />;
 
+  const todoTasks = tasks.filter(t => t.status === 'todo');
+  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+  const completedTasks = tasks.filter(t => t.status === 'done');
+  const overdueTasks = tasks.filter(t => t.due_date && isPast(new Date(t.due_date)) && t.status !== 'done');
+
   return (
-    <div style={{ padding: '24px' }} className="animate-fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>Contracts</h2>
-          <p style={{ color: '#6C757D' }}>{contracts.length} contracts total</p>
-        </div>
-        {canCreateContract && (
-          <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" data-testid="create-contract-btn">
-            <Plus size={18} />
-            New Contract
-          </button>
-        )}
+    <motion.div style={{ padding: '24px' }} initial="hidden" animate="visible" variants={staggerContainer}>
+      <motion.div variants={fadeInUp} className="card card-gold" style={{ marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>Welcome, {user?.name}!</h2>
+        <p style={{ color: '#6C757D' }}>Here are your assigned tasks and projects</p>
+      </motion.div>
+
+      {/* Stat Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <StatCard icon={FileText} value={todoTasks.length} label="To Do" color="gray" delay={0} />
+        <StatCard icon={Activity} value={inProgressTasks.length} label="In Progress" color="blue" delay={0.1} />
+        <StatCard icon={CheckCircle} value={completedTasks.length} label="Completed" color="green" delay={0.2} />
+        <StatCard icon={AlertTriangle} value={overdueTasks.length} label="Overdue" color="red" delay={0.3} />
       </div>
 
-      {/* Contracts List */}
-      {contracts.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
-          <FileText size={48} color="#DEE2E6" style={{ margin: '0 auto 16px' }} />
-          <h3 style={{ marginBottom: '8px' }}>No contracts yet</h3>
-          <p style={{ color: '#6C757D', marginBottom: '24px' }}>Finance Officer creates contracts</p>
+      {/* My Tasks */}
+      <motion.div variants={fadeInUp} className="card">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '600' }}>My Tasks</h3>
+          <Link to="/tasks" className="btn btn-primary" style={{ fontSize: '13px' }}>
+            <CheckSquare size={16} /> View All Tasks
+          </Link>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {contracts.map(contract => (
-            <div key={contract.id} className="contract-card">
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <span className="contract-number">{contract.contract_number}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    <span className={`status-badge status-${contract.project_status?.toLowerCase()}`}>{contract.project_status}</span>
-                    <span className={`priority-badge profit-${contract.profit_status}`}>
-                      {contract.profit_status === 'green' ? '✓ Profitable' : contract.profit_status === 'orange' ? '! Below Target' : '✗ Loss'}
-                    </span>
-                    {contract.project_type && <span style={{ fontSize: '12px', color: '#6C757D' }}>{contract.project_type}</span>}
+        
+        {tasks.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <CheckSquare size={48} color="#DEE2E6" style={{ marginBottom: '16px' }} />
+            <p style={{ color: '#6C757D' }}>No tasks assigned yet</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {tasks.slice(0, 5).map((task, index) => (
+              <motion.div
+                key={task.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="task-card"
+                style={{ margin: 0 }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ fontWeight: '600', marginBottom: '4px' }}>{task.title}</h4>
+                    <p style={{ fontSize: '12px', color: '#B8860B' }}>{task.contract_number}</p>
                   </div>
+                  <span className={`priority-badge priority-${task.priority}`}>{task.priority}</span>
+                  <span className={`status-badge status-${task.status}`}>{task.status.replace('_', ' ')}</span>
                 </div>
-                {canConfigureOps && (
-                  <button onClick={() => openOpsModal(contract)} className="btn btn-secondary" style={{ padding: '8px 16px' }}>
-                    <Settings size={16} />
-                    Configure
-                  </button>
-                )}
-              </div>
-
-              {/* Financial Grid */}
-              <div className="financial-grid">
-                <div className="financial-item">
-                  <div className="financial-label">Contract Value</div>
-                  <div className="financial-value">{formatCurrency(contract.contract_value)}</div>
-                </div>
-                <div className="financial-item">
-                  <div className="financial-label">Target Profit (30%)</div>
-                  <div className="financial-value" style={{ color: '#B8860B' }}>{formatCurrency(contract.target_profit)}</div>
-                </div>
-                <div className="financial-item">
-                  <div className="financial-label">Actual Profit</div>
-                  <div className="financial-value" style={{ color: contract.actual_profit >= 0 ? '#2E7D32' : '#C62828' }}>
-                    {formatCurrency(contract.actual_profit)}
-                  </div>
-                </div>
-                <div className="financial-item">
-                  <div className="financial-label">Staff Cost</div>
-                  <div className="financial-value">{formatCurrency(contract.staff_cost)}</div>
-                </div>
-                <div className="financial-item">
-                  <div className="financial-label">Tax</div>
-                  <div className="financial-value">{formatCurrency(contract.tax)}</div>
-                </div>
-                <div className="financial-item">
-                  <div className="financial-label">Overhead</div>
-                  <div className="financial-value">{formatCurrency(contract.overhead_cost)}</div>
-                </div>
-              </div>
-
-              {/* Project Info */}
-              <div style={{ marginTop: '16px', display: 'flex', gap: '24px', fontSize: '13px', color: '#6C757D', flexWrap: 'wrap' }}>
-                {contract.project_start_date && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {task.due_date && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '12px', color: isPast(new Date(task.due_date)) && task.status !== 'done' ? COLORS.red : '#6C757D' }}>
                     <Calendar size={14} />
-                    {format(new Date(contract.project_start_date), 'MMM d, yyyy')} - {contract.project_end_date ? format(new Date(contract.project_end_date), 'MMM d, yyyy') : 'TBD'}
-                  </span>
+                    Due: {format(new Date(task.due_date), 'MMM d, yyyy')}
+                    {isPast(new Date(task.due_date)) && task.status !== 'done' && <span style={{ color: COLORS.red, fontWeight: '600' }}> (OVERDUE)</span>}
+                  </div>
                 )}
-                {contract.duration_type && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={14} />
-                    {contract.duration_type}
-                  </span>
-                )}
-                {contract.finance_officer_name && (
-                  <span>Finance: {contract.finance_officer_name}</span>
-                )}
-                {contract.operations_officer_name && (
-                  <span>Operations: {contract.operations_officer_name}</span>
-                )}
-              </div>
-
-              {/* Progress */}
-              <div style={{ marginTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '12px' }}>
-                  <span style={{ color: '#6C757D' }}>Task Progress</span>
-                  <span style={{ fontWeight: '600' }}>{contract.task_stats?.progress || 0}%</span>
-                </div>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${contract.task_stats?.progress || 0}%` }} />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Create Contract Modal (Finance Officer) */}
-      {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Create New Contract</h3>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateContract}>
-              <div className="modal-body">
-                <p style={{ fontSize: '13px', color: '#6C757D', marginBottom: '20px', padding: '12px', background: '#F8F9FA', borderRadius: '8px' }}>
-                  <strong>Finance Officer Role:</strong> Enter financial parameters. Contract number will be auto-generated. Profits will be calculated automatically.
-                </p>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Contract Value *</label>
-                    <input
-                      type="number"
-                      value={financeForm.contract_value}
-                      onChange={(e) => setFinanceForm({ ...financeForm, contract_value: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                      required
-                      data-testid="contract-value-input"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Staff Count</label>
-                    <input
-                      type="number"
-                      value={financeForm.staff_count}
-                      onChange={(e) => setFinanceForm({ ...financeForm, staff_count: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Staff Cost</label>
-                    <input
-                      type="number"
-                      value={financeForm.staff_cost}
-                      onChange={(e) => setFinanceForm({ ...financeForm, staff_cost: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Tax</label>
-                    <input
-                      type="number"
-                      value={financeForm.tax}
-                      onChange={(e) => setFinanceForm({ ...financeForm, tax: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Overhead Cost</label>
-                    <input
-                      type="number"
-                      value={financeForm.overhead_cost}
-                      onChange={(e) => setFinanceForm({ ...financeForm, overhead_cost: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Commission</label>
-                    <input
-                      type="number"
-                      value={financeForm.commission}
-                      onChange={(e) => setFinanceForm({ ...financeForm, commission: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Admin Fee</label>
-                    <input
-                      type="number"
-                      value={financeForm.admin_fee}
-                      onChange={(e) => setFinanceForm({ ...financeForm, admin_fee: e.target.value })}
-                      className="input"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" data-testid="submit-contract-btn">Create Contract</button>
-              </div>
-            </form>
+              </motion.div>
+            ))}
           </div>
-        </div>
-      )}
-
-      {/* Operations Setup Modal */}
-      {showOpsModal && selectedContract && (
-        <div className="modal-overlay" onClick={() => setShowOpsModal(false)}>
-          <div className="modal" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Configure Operations - {selectedContract.contract_number}</h3>
-              <button onClick={() => setShowOpsModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleOpsSetup}>
-              <div className="modal-body">
-                <p style={{ fontSize: '13px', color: '#6C757D', marginBottom: '20px', padding: '12px', background: '#F8F9FA', borderRadius: '8px' }}>
-                  <strong>Operations & Quality Officer Role:</strong> Define project timeline and attributes. Status will be auto-set based on dates.
-                </p>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Start Date</label>
-                    <input
-                      type="date"
-                      value={opsForm.project_start_date}
-                      onChange={(e) => setOpsForm({ ...opsForm, project_start_date: e.target.value })}
-                      className="input"
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>End Date</label>
-                    <input
-                      type="date"
-                      value={opsForm.project_end_date}
-                      onChange={(e) => setOpsForm({ ...opsForm, project_end_date: e.target.value })}
-                      className="input"
-                    />
-                  </div>
-                </div>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Project Type</label>
-                  <select
-                    value={opsForm.project_type}
-                    onChange={(e) => setOpsForm({ ...opsForm, project_type: e.target.value })}
-                    className="input"
-                  >
-                    <option value="General">General</option>
-                    <option value="Insurance">Insurance</option>
-                    <option value="Banking">Banking</option>
-                    <option value="Pension">Pension</option>
-                    <option value="Capital Markets">Capital Markets</option>
-                    <option value="Enterprise Risk">Enterprise Risk</option>
-                  </select>
-                </div>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Duration Type</label>
-                  <select
-                    value={opsForm.duration_type}
-                    onChange={(e) => setOpsForm({ ...opsForm, duration_type: e.target.value })}
-                    className="input"
-                  >
-                    <option value="Non-Recurring">Non-Recurring</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Semi-Annually">Semi-Annually</option>
-                    <option value="Annually">Annually</option>
-                  </select>
-                </div>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Manual Status Override</label>
-                  <select
-                    value={opsForm.manual_status}
-                    onChange={(e) => setOpsForm({ ...opsForm, manual_status: e.target.value })}
-                    className="input"
-                  >
-                    <option value="">Auto (based on dates)</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-                
-                {opsForm.manual_status === 'inactive' && (
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Inactive Reason</label>
-                    <select
-                      value={opsForm.inactive_reason}
-                      onChange={(e) => setOpsForm({ ...opsForm, inactive_reason: e.target.value })}
-                      className="input"
-                    >
-                      <option value="">Select reason</option>
-                      <option value="Early completion">Early completion</option>
-                      <option value="Client delays">Client delays</option>
-                      <option value="Operational issues">Operational issues</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowOpsModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-gold">Save Configuration</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </motion.div>
+    </motion.div>
   );
+};
+
+// ==================== DASHBOARD ROUTER ====================
+const DashboardPage = () => {
+  const { user } = useAuth();
+  
+  switch (user?.role) {
+    case 'ceo':
+      return <CEODashboard />;
+    case 'operations':
+      return <OperationsDashboard />;
+    case 'finance':
+      return <FinanceDashboard />;
+    default:
+      return <WorkerDashboard />;
+  }
+};
+
+// ==================== CONTRACTS PAGE ====================
+const ContractsPage = () => {
+  const { user } = useAuth();
+  
+  if (user?.role === 'finance') {
+    return <FinanceDashboard />;
+  }
+  if (user?.role === 'operations') {
+    return <OperationsDashboard />;
+  }
+  return <CEODashboard />;
 };
 
 // ==================== TASK BOARD PAGE ====================
 const TaskBoardPage = () => {
-  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
   const [filterContract, setFilterContract] = useState('');
-  const [formData, setFormData] = useState({
-    title: '', description: '', contract_id: '', assigned_to: '', priority: 'medium', due_date: ''
-  });
+  const [formData, setFormData] = useState({ title: '', description: '', contract_id: '', assigned_to: '', priority: 'medium', due_date: '' });
 
   const columns = [
     { id: 'todo', title: 'To Do', color: '#6C757D' },
-    { id: 'in_progress', title: 'In Progress', color: '#1565C0' },
-    { id: 'review', title: 'Review', color: '#7B1FA2' },
-    { id: 'done', title: 'Done', color: '#2E7D32' }
+    { id: 'in_progress', title: 'In Progress', color: '#3B82F6' },
+    { id: 'review', title: 'Review', color: '#8B5CF6' },
+    { id: 'done', title: 'Done', color: '#22C55E' }
   ];
 
-  useEffect(() => {
-    loadData();
-  }, [filterContract]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [tasksRes, contractsRes, usersRes] = await Promise.all([
         tasksAPI.getAll({ contract_id: filterContract || undefined }),
@@ -886,15 +1028,14 @@ const TaskBoardPage = () => {
       console.error('Failed to load data:', err);
     }
     setLoading(false);
-  };
+  }, [filterContract]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
     try {
-      await tasksAPI.create({
-        ...formData,
-        due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null
-      });
+      await tasksAPI.create({ ...formData, due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null });
       setShowModal(false);
       setFormData({ title: '', description: '', contract_id: '', assigned_to: '', priority: 'medium', due_date: '' });
       loadData();
@@ -917,364 +1058,155 @@ const TaskBoardPage = () => {
   if (loading) return <LoadingScreen />;
 
   return (
-    <div style={{ padding: '24px' }} className="animate-fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+    <motion.div style={{ padding: '24px' }} initial="hidden" animate="visible" variants={staggerContainer}>
+      <motion.div variants={fadeInUp} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>Task Board</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: '700' }}>Task Board</h2>
           <p style={{ color: '#6C757D' }}>Track and manage your tasks</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={filterContract}
-            onChange={(e) => setFilterContract(e.target.value)}
-            className="input"
-            style={{ width: '200px' }}
-          >
+          <select value={filterContract} onChange={(e) => setFilterContract(e.target.value)} className="input" style={{ width: '200px' }}>
             <option value="">All Contracts</option>
-            {contracts.map(c => (
-              <option key={c.id} value={c.id}>{c.contract_number}</option>
-            ))}
+            {contracts.map(c => <option key={c.id} value={c.id}>{c.contract_number}</option>)}
           </select>
-          <button onClick={() => setShowModal(true)} className="btn btn-primary" data-testid="create-task-btn">
-            <Plus size={18} />
-            New Task
-          </button>
+          <motion.button onClick={() => setShowModal(true)} className="btn btn-primary" whileHover={{ scale: 1.02 }}>
+            <Plus size={18} /> New Task
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
       <div className="task-board">
-        {columns.map(column => (
-          <div key={column.id} className="task-column">
+        {columns.map((column, colIndex) => (
+          <motion.div 
+            key={column.id} 
+            className="task-column"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: colIndex * 0.1 }}
+          >
             <div className="task-column-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: column.color }} />
                 <h4 style={{ fontWeight: '600', fontSize: '14px' }}>{column.title}</h4>
               </div>
-              <span style={{ background: '#E9ECEF', padding: '2px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: '600' }}>
-                {getTasksByStatus(column.id).length}
-              </span>
+              <span style={{ background: '#E9ECEF', padding: '2px 8px', borderRadius: '10px', fontSize: '12px', fontWeight: '600' }}>{getTasksByStatus(column.id).length}</span>
             </div>
             <div style={{ minHeight: '200px' }}>
-              {getTasksByStatus(column.id).map(task => (
-                <div key={task.id} className="task-card" onClick={() => setSelectedTask(task)}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                    <h4 style={{ fontWeight: '600', fontSize: '14px', flex: 1 }}>{task.title}</h4>
-                    <span className={`priority-badge priority-${task.priority}`}>{task.priority}</span>
-                  </div>
-                  {task.contract_number && (
-                    <p style={{ fontSize: '11px', color: '#B8860B', marginBottom: '8px' }}>{task.contract_number}</p>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {task.assigned_user && (
-                        <img src={task.assigned_user.avatar} alt={task.assigned_user.name} className="avatar avatar-sm" title={task.assigned_user.name} />
-                      )}
-                      {task.due_date && (
-                        <span style={{ fontSize: '11px', color: isPast(new Date(task.due_date)) && column.id !== 'done' ? '#C62828' : '#6C757D', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Calendar size={12} />
-                          {format(new Date(task.due_date), 'MMM d')}
-                        </span>
-                      )}
+              <AnimatePresence>
+                {getTasksByStatus(column.id).map((task, index) => (
+                  <motion.div
+                    key={task.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="task-card"
+                    whileHover={{ y: -2, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                      <h4 style={{ fontWeight: '600', fontSize: '14px', flex: 1 }}>{task.title}</h4>
+                      <span className={`priority-badge priority-${task.priority}`}>{task.priority}</span>
                     </div>
-                    {task.comment_count > 0 && (
-                      <span style={{ fontSize: '11px', color: '#6C757D', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <MessageSquare size={12} />
-                        {task.comment_count}
-                      </span>
-                    )}
-                  </div>
-                  {/* Quick status buttons */}
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '12px', flexWrap: 'wrap' }}>
-                    {columns.filter(c => c.id !== column.id).map(c => (
-                      <button
-                        key={c.id}
-                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(task.id, c.id); }}
-                        style={{ padding: '4px 8px', fontSize: '10px', background: '#F8F9FA', border: '1px solid #DEE2E6', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        → {c.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                    {task.contract_number && <p style={{ fontSize: '11px', color: '#B8860B', marginBottom: '8px' }}>{task.contract_number}</p>}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {task.assigned_user && <img src={task.assigned_user.avatar} alt={task.assigned_user.name} className="avatar avatar-sm" title={task.assigned_user.name} />}
+                        {task.due_date && (
+                          <span style={{ fontSize: '11px', color: isPast(new Date(task.due_date)) && column.id !== 'done' ? COLORS.red : '#6C757D', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Calendar size={12} /> {format(new Date(task.due_date), 'MMM d')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '12px', flexWrap: 'wrap' }}>
+                      {columns.filter(c => c.id !== column.id).map(c => (
+                        <motion.button
+                          key={c.id}
+                          onClick={() => handleUpdateStatus(task.id, c.id)}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          style={{ padding: '4px 8px', fontSize: '10px', background: '#F8F9FA', border: '1px solid #DEE2E6', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          → {c.title}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       {/* Create Task Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Create New Task</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateTask}>
-              <div className="modal-body">
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Task Title *</label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="input"
-                    placeholder="Enter task title"
-                    required
-                    data-testid="task-title-input"
-                  />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Description</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="input"
-                    placeholder="Task description"
-                    rows={3}
-                    style={{ resize: 'vertical' }}
-                  />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Contract *</label>
-                  <select
-                    value={formData.contract_id}
-                    onChange={(e) => setFormData({ ...formData, contract_id: e.target.value })}
-                    className="input"
-                    required
-                    data-testid="task-contract-select"
-                  >
-                    <option value="">Select contract</option>
-                    {contracts.map(c => (
-                      <option key={c.id} value={c.id}>{c.contract_number}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Assign To</label>
-                    <select
-                      value={formData.assigned_to}
-                      onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                      className="input"
-                    >
-                      <option value="">Unassigned</option>
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)}>
+            <motion.div className="modal" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Create New Task</h3>
+                <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+              </div>
+              <form onSubmit={handleCreateTask}>
+                <div className="modal-body">
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Task Title *</label>
+                    <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="input" placeholder="Enter task title" required />
+                  </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Contract *</label>
+                    <select value={formData.contract_id} onChange={(e) => setFormData({ ...formData, contract_id: e.target.value })} className="input" required>
+                      <option value="">Select contract</option>
+                      {contracts.map(c => <option key={c.id} value={c.id}>{c.contract_number}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Priority</label>
-                    <select
-                      value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                      className="input"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Due Date</label>
-                  <input
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="input"
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary" data-testid="submit-task-btn">Create Task</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Task Detail Modal */}
-      {selectedTask && (
-        <TaskDetailModal task={selectedTask} users={users} onClose={() => setSelectedTask(null)} onUpdate={loadData} />
-      )}
-    </div>
-  );
-};
-
-// ==================== TASK DETAIL MODAL ====================
-const TaskDetailModal = ({ task, users, onClose, onUpdate }) => {
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadComments();
-  }, [task.id]);
-
-  const loadComments = async () => {
-    try {
-      const res = await tasksAPI.getComments(task.id);
-      setComments(res.data);
-    } catch (err) {
-      console.error('Failed to load comments:', err);
-    }
-    setLoading(false);
-  };
-
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-    try {
-      await tasksAPI.addComment(task.id, newComment);
-      setNewComment('');
-      loadComments();
-      onUpdate();
-    } catch (err) {
-      console.error('Failed to add comment:', err);
-    }
-  };
-
-  const handleUpdateTask = async (updates) => {
-    try {
-      await tasksAPI.update(task.id, updates);
-      onUpdate();
-    } catch (err) {
-      console.error('Failed to update task:', err);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this task?')) {
-      try {
-        await tasksAPI.delete(task.id);
-        onClose();
-        onUpdate();
-      } catch (err) {
-        console.error('Failed to delete task:', err);
-      }
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: '600px' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span className={`priority-badge priority-${task.priority}`}>{task.priority}</span>
-            <span className={`status-badge status-${task.status}`}>{task.status.replace('_', ' ')}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={handleDelete} style={{ background: 'none', border: 'none', color: '#C62828', cursor: 'pointer' }}>
-              <Trash2 size={18} />
-            </button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-        <div className="modal-body">
-          <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>{task.title}</h2>
-          <p style={{ color: '#B8860B', fontSize: '13px', marginBottom: '16px' }}>{task.contract_number}</p>
-          
-          {task.description && (
-            <p style={{ color: '#6C757D', marginBottom: '20px', lineHeight: '1.6' }}>{task.description}</p>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#6C757D', marginBottom: '6px' }}>Status</label>
-              <select
-                value={task.status}
-                onChange={(e) => handleUpdateTask({ status: e.target.value })}
-                className="input"
-              >
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="review">Review</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', color: '#6C757D', marginBottom: '6px' }}>Assigned To</label>
-              <select
-                value={task.assigned_to || ''}
-                onChange={(e) => handleUpdateTask({ assigned_to: e.target.value || null })}
-                className="input"
-              >
-                <option value="">Unassigned</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Comments Section */}
-          <div style={{ borderTop: '1px solid #DEE2E6', paddingTop: '20px' }}>
-            <h4 style={{ fontWeight: '600', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MessageSquare size={18} />
-              Comments ({comments.length})
-            </h4>
-            
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '16px' }}>
-              {comments.map(comment => (
-                <div key={comment.id} style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                  <img src={comment.user?.avatar} alt={comment.user?.name} className="avatar avatar-sm" />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: '600', fontSize: '13px' }}>{comment.user?.name}</span>
-                      <span style={{ fontSize: '11px', color: '#ADB5BD' }}>
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                      </span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Assign To</label>
+                      <select value={formData.assigned_to} onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })} className="input">
+                        <option value="">Unassigned</option>
+                        {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
                     </div>
-                    <p style={{ fontSize: '14px', color: '#495057', lineHeight: '1.5' }}>{comment.content}</p>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Priority</label>
+                      <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="input">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Due Date</label>
+                    <input type="date" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} className="input" />
                   </div>
                 </div>
-              ))}
-              {comments.length === 0 && (
-                <p style={{ color: '#ADB5BD', fontSize: '14px' }}>No comments yet</p>
-              )}
-            </div>
-
-            <form onSubmit={handleAddComment} style={{ display: 'flex', gap: '12px' }}>
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="input"
-                placeholder="Add a comment..."
-                style={{ flex: 1 }}
-              />
-              <button type="submit" className="btn btn-primary">Post</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+                <div className="modal-footer">
+                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
+                  <button type="submit" className="btn btn-primary">Create Task</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
-// ==================== TEAM PAGE (CEO ASSIGNS ROLES) ====================
+// ==================== TEAM PAGE ====================
 const TeamPage = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '', email: '', password: '', department: '', phone: ''
-  });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', department: '', phone: '' });
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const res = await usersAPI.getAll();
       setUsers(res.data);
@@ -1282,7 +1214,9 @@ const TeamPage = () => {
       console.error('Failed to load users:', err);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -1305,213 +1239,136 @@ const TeamPage = () => {
     }
   };
 
-  const handleToggleStatus = async (userId) => {
-    try {
-      await usersAPI.toggleStatus(userId);
-      loadUsers();
-    } catch (err) {
-      console.error('Failed to toggle user status:', err);
-    }
-  };
-
-  const canManageUsers = ['ceo', 'operations'].includes(user?.role);
-  const canAssignRoles = user?.role === 'ceo';
-
   if (loading) return <LoadingScreen />;
 
   return (
-    <div style={{ padding: '24px' }} className="animate-fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+    <motion.div style={{ padding: '24px' }} initial="hidden" animate="visible" variants={staggerContainer}>
+      <motion.div variants={fadeInUp} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>Team Management</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: '700' }}>Team Management</h2>
           <p style={{ color: '#6C757D' }}>{users.length} team members</p>
         </div>
-        {canManageUsers && (
-          <button onClick={() => setShowModal(true)} className="btn btn-primary" data-testid="add-member-btn">
-            <Plus size={18} />
-            Add Worker
-          </button>
-        )}
-      </div>
+        <motion.button onClick={() => setShowModal(true)} className="btn btn-primary" whileHover={{ scale: 1.02 }}>
+          <Plus size={18} /> Add Worker
+        </motion.button>
+      </motion.div>
 
       {/* Role Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        {['ceo', 'finance', 'operations', 'worker'].map(role => (
-          <div key={role} className="card stat-card">
-            <span className={`role-badge role-${role}`} style={{ marginBottom: '8px', display: 'inline-block' }}>{role}</span>
-            <div className="stat-value" style={{ fontSize: '24px' }}>{users.filter(u => u.role === role).length}</div>
-          </div>
+        {['ceo', 'finance', 'operations', 'worker'].map((role, index) => (
+          <StatCard key={role} icon={Users} value={users.filter(u => u.role === role).length} label={role.toUpperCase()} color={role === 'ceo' ? 'red' : role === 'finance' ? 'gold' : role === 'operations' ? 'green' : 'blue'} delay={index * 0.1} />
         ))}
       </div>
 
       {/* Team Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-        {users.map(member => (
-          <div key={member.id} className="card">
+        {users.map((member, index) => (
+          <motion.div 
+            key={member.id} 
+            className="card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            whileHover={{ y: -4, boxShadow: '0 8px 25px rgba(0,0,0,0.1)' }}
+          >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
               <img src={member.avatar} alt={member.name} className="avatar avatar-lg" />
               <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                  <h4 style={{ fontWeight: '600' }}>{member.name}</h4>
-                  {!member.is_active && (
-                    <span style={{ fontSize: '10px', background: '#FFEBEE', color: '#C62828', padding: '2px 6px', borderRadius: '4px' }}>Inactive</span>
-                  )}
-                </div>
+                <h4 style={{ fontWeight: '600', marginBottom: '4px' }}>{member.name}</h4>
                 <span className={`role-badge role-${member.role}`}>{member.role}</span>
                 <p style={{ fontSize: '13px', color: '#6C757D', marginTop: '8px' }}>{member.email}</p>
               </div>
             </div>
 
-            {/* Task Stats */}
             <div style={{ padding: '12px', background: '#F8F9FA', borderRadius: '8px', marginBottom: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '12px', color: '#6C757D' }}>Task Completion</span>
                 <span style={{ fontSize: '12px', fontWeight: '600', color: '#B8860B' }}>{member.stats?.completion_rate || 0}%</span>
               </div>
               <div className="progress-bar" style={{ height: '6px' }}>
-                <div className="progress-fill" style={{ width: `${member.stats?.completion_rate || 0}%` }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: '#6C757D' }}>
-                <span>{member.stats?.completed_tasks || 0} done</span>
-                <span>{member.stats?.in_progress || 0} active</span>
-                <span>{member.stats?.total_tasks || 0} total</span>
+                <motion.div 
+                  className="progress-fill" 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${member.stats?.completion_rate || 0}%` }}
+                  transition={{ duration: 1, delay: 0.5 }}
+                />
               </div>
             </div>
 
-            {/* Role Assignment (CEO only) */}
-            {canAssignRoles && member.role !== 'ceo' && (
+            {user?.role === 'ceo' && member.role !== 'ceo' && (
               <div style={{ marginBottom: '12px' }}>
                 <label style={{ display: 'block', fontSize: '12px', color: '#6C757D', marginBottom: '6px' }}>Assign Role</label>
-                <select
-                  value={member.role}
-                  onChange={(e) => handleAssignRole(member.id, e.target.value)}
-                  className="input"
-                  style={{ fontSize: '13px' }}
-                >
+                <select value={member.role} onChange={(e) => handleAssignRole(member.id, e.target.value)} className="input" style={{ fontSize: '13px' }}>
                   <option value="worker">Worker</option>
                   <option value="finance">Finance Officer</option>
-                  <option value="operations">Operations & Quality Officer</option>
+                  <option value="operations">Operations Officer</option>
                 </select>
               </div>
             )}
-
-            {canAssignRoles && member.id !== user.id && (
-              <button
-                onClick={() => handleToggleStatus(member.id)}
-                className={`btn ${member.is_active ? 'btn-danger' : 'btn-primary'}`}
-                style={{ width: '100%', fontSize: '13px' }}
-              >
-                {member.is_active ? 'Deactivate' : 'Activate'}
-              </button>
-            )}
-          </div>
+          </motion.div>
         ))}
       </div>
 
-      {/* Add Worker Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Add New Worker</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateUser}>
-              <div className="modal-body">
-                <p style={{ fontSize: '13px', color: '#6C757D', marginBottom: '20px', padding: '12px', background: '#F8F9FA', borderRadius: '8px' }}>
-                  New users are added as Workers. The CEO can assign Finance or Operations roles from the team page.
-                </p>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Full Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="input"
-                    placeholder="Enter full name"
-                    required
-                  />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Email *</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="input"
-                    placeholder="Enter email"
-                    required
-                  />
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Password *</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="input"
-                    placeholder="Enter password"
-                    required
-                  />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Department</label>
-                    <input
-                      type="text"
-                      value={formData.department}
-                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                      className="input"
-                      placeholder="e.g., Staff"
-                    />
+      {/* Add User Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowModal(false)}>
+            <motion.div className="modal" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3 style={{ fontSize: '18px', fontWeight: '600' }}>Add New Worker</h3>
+                <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+              </div>
+              <form onSubmit={handleCreateUser}>
+                <div className="modal-body">
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Full Name *</label>
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="input" placeholder="Enter full name" required />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="input"
-                      placeholder="+255..."
-                    />
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Email *</label>
+                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="input" placeholder="Enter email" required />
+                  </div>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', fontWeight: '500' }}>Password *</label>
+                    <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="input" placeholder="Enter password" required />
                   </div>
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
-                <button type="submit" className="btn btn-primary">Add Worker</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+                <div className="modal-footer">
+                  <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
+                  <button type="submit" className="btn btn-primary">Add Worker</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 
 // ==================== MAIN LAYOUT ====================
 const MainLayout = ({ children }) => {
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
-  const getPageTitle = () => {
-    switch (location.pathname) {
-      case '/dashboard': return 'Dashboard';
-      case '/contracts': return 'Contracts';
-      case '/tasks': return 'Task Board';
-      case '/team': return 'Team Management';
-      default: return 'ARC';
-    }
+  const getPageInfo = () => {
+    const titles = {
+      '/dashboard': { title: user?.role === 'ceo' ? 'Overview Dashboard' : user?.role === 'operations' ? 'Operations & Quality Management' : user?.role === 'finance' ? 'Project Management' : 'My Dashboard', subtitle: user?.role === 'ceo' ? 'Executive overview of all contracts and profits' : user?.role === 'operations' ? 'Manage operations and project execution' : user?.role === 'finance' ? 'Manage contracts and project finances' : 'View your assigned tasks and projects' },
+      '/contracts': { title: user?.role === 'finance' ? 'Project Management' : 'Operations & Quality', subtitle: 'Manage contracts and operations' },
+      '/tasks': { title: 'Task Board', subtitle: 'Track and manage your tasks' },
+      '/team': { title: 'Team Management', subtitle: 'Manage team members and roles' }
+    };
+    return titles[location.pathname] || { title: 'ARC', subtitle: '' };
   };
+
+  const { title, subtitle } = getPageInfo();
 
   return (
     <div className="app-container">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content">
-        <Header onMenuClick={() => setSidebarOpen(true)} title={getPageTitle()} />
+        <Header onMenuClick={() => setSidebarOpen(true)} title={title} subtitle={subtitle} />
         {children}
       </main>
     </div>
@@ -1526,38 +1383,10 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <MainLayout><DashboardPage /></MainLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/contracts"
-            element={
-              <ProtectedRoute>
-                <MainLayout><ContractsPage /></MainLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tasks"
-            element={
-              <ProtectedRoute>
-                <MainLayout><TaskBoardPage /></MainLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/team"
-            element={
-              <ProtectedRoute>
-                <MainLayout><TeamPage /></MainLayout>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/dashboard" element={<ProtectedRoute><MainLayout><DashboardPage /></MainLayout></ProtectedRoute>} />
+          <Route path="/contracts" element={<ProtectedRoute><MainLayout><ContractsPage /></MainLayout></ProtectedRoute>} />
+          <Route path="/tasks" element={<ProtectedRoute><MainLayout><TaskBoardPage /></MainLayout></ProtectedRoute>} />
+          <Route path="/team" element={<ProtectedRoute><MainLayout><TeamPage /></MainLayout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
