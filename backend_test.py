@@ -106,10 +106,11 @@ class ARCAPITester:
     def test_dashboard_stats(self):
         """Test dashboard statistics"""
         success, data = self.make_request('GET', 'dashboard/stats')
-        expected_keys = ['overview', 'my_stats', 'priority_breakdown']
+        expected_keys = ['contracts', 'profit_status', 'tasks', 'team', 'my_stats']
         
         if success and all(key in data for key in expected_keys):
             self.log_result("Dashboard Stats", True)
+            print(f"   Contracts: {data['contracts']['total']}, Profit Status: Green={data['profit_status']['green']}, Orange={data['profit_status']['orange']}, Red={data['profit_status']['red']}")
             return data
         else:
             self.log_result("Dashboard Stats", False, f"Missing keys or failed request: {data}")
