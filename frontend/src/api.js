@@ -40,14 +40,16 @@ export const authAPI = {
 export const usersAPI = {
   getAll: () => api.get('/api/users'),
   create: (data) => api.post('/api/users', data),
+  assignRole: (userId, newRole) => api.put(`/api/users/${userId}/assign-role`, { user_id: userId, new_role: newRole }),
   toggleStatus: (id) => api.put(`/api/users/${id}/toggle-status`),
 };
 
-export const projectsAPI = {
-  getAll: () => api.get('/api/projects'),
-  getOne: (id) => api.get(`/api/projects/${id}`),
-  create: (data) => api.post('/api/projects', data),
-  update: (id, data) => api.put(`/api/projects/${id}`, data),
+export const contractsAPI = {
+  getAll: () => api.get('/api/contracts'),
+  getOne: (id) => api.get(`/api/contracts/${id}`),
+  create: (data) => api.post('/api/contracts', data),
+  updateOperations: (id, data) => api.put(`/api/contracts/${id}/operations`, data),
+  addStaff: (id, data) => api.post(`/api/contracts/${id}/staff`, data),
 };
 
 export const tasksAPI = {
