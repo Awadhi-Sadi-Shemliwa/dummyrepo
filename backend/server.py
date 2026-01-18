@@ -676,9 +676,10 @@ async def get_tasks(
                     "avatar": user.get("avatar")
                 }
         
-        contract = await db.contracts.find_one({"id": task["contract_id"]})
-        if contract:
-            task["contract_number"] = contract["contract_number"]
+        if task.get("contract_id"):
+            contract = await db.contracts.find_one({"id": task["contract_id"]})
+            if contract:
+                task["contract_number"] = contract["contract_number"]
         
         task["comment_count"] = await db.comments.count_documents({"task_id": task["id"]})
         tasks.append(task)
