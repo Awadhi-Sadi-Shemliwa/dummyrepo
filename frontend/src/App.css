@@ -631,11 +631,27 @@ select.input {
   .financial-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  
+  .stat-card {
+    padding: 16px;
+  }
+  
+  .stat-value {
+    font-size: 22px;
+  }
+  
+  table {
+    font-size: 12px;
+  }
+  
+  table th, table td {
+    padding: 8px !important;
+  }
 }
 
 @media (max-width: 480px) {
   .stat-value {
-    font-size: 24px;
+    font-size: 20px;
   }
   
   .task-column {
@@ -644,6 +660,19 @@ select.input {
   
   .modal {
     margin: 10px;
+  }
+  
+  .btn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  
+  .header h1 {
+    font-size: 16px;
+  }
+  
+  .card {
+    padding: 12px;
   }
 }
 
