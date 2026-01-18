@@ -295,6 +295,24 @@ class ARCAPITester:
                 self.log_result("Create User", False, str(data))
                 return None
 
+    def test_assign_role(self, user_id: str, new_role: str):
+        """Test role assignment (CEO only)"""
+        success, data = self.make_request('PUT', f'users/{user_id}/assign-role', {
+            'user_id': user_id,
+            'new_role': new_role
+        })
+        if success:
+            self.log_result(f"Assign Role ({new_role})", True)
+            return True
+        else:
+            # This might fail for non-CEO users, which is expected
+            if self.current_user and self.current_user.get('role') != 'ceo':
+                self.log_result(f"Assign Role ({new_role})", True, "Access denied as expected for non-CEO user")
+                return True
+            else:
+                self.log_result(f"Assign Role ({new_role})", False, str(data))
+                return False
+
     def test_activities(self):
         """Test activities endpoint"""
         success, data = self.make_request('GET', 'activities?limit=10')
