@@ -36,12 +36,10 @@ security = HTTPBearer()
 
 # ==================== MODELS ====================
 
-class UserCreate(BaseModel):
+class UserSignup(BaseModel):
     email: EmailStr
     password: str
     name: str
-    role: str = "worker"  # ceo, finance, operations, worker
-    department: Optional[str] = None
     phone: Optional[str] = None
 
 class UserLogin(BaseModel):
@@ -50,34 +48,39 @@ class UserLogin(BaseModel):
 
 class RoleAssignment(BaseModel):
     user_id: str
-    new_role: str  # finance or operations
+    new_role: str
 
-# Contract creation by Finance Officer (following flowchart)
+# Contract creation by CEO
 class ContractCreate(BaseModel):
+    client_name: str
+    project_name: str
+    project_type: str = "General"
     contract_value: float
-    staff_count: int
-    tax: float
-    overhead_cost: float
-    commission: float
-    admin_fee: float
-    staff_cost: float
-    finance_officer_name: Optional[str] = None
+    description: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
-# Operations setup (following flowchart)
+# Finance allocation
+class FinanceAllocation(BaseModel):
+    staff_count: int = 0
+    tax: float = 0
+    overhead_cost: float = 0
+    commission: float = 0
+    admin_fee: float = 0
+    staff_cost: float = 0
+
+# Operations setup
 class OperationsSetup(BaseModel):
     project_start_date: Optional[str] = None
     project_end_date: Optional[str] = None
-    project_type: str = "General"  # Insurance, Banking, Pension, Capital Markets, Enterprise Risk
-    duration_type: str = "Non-Recurring"  # Non-Recurring, Monthly, Quarterly, Semi-Annually, Annually
-    operations_officer_name: Optional[str] = None
-    manual_status: Optional[str] = None  # null, inactive
-    inactive_reason: Optional[str] = None  # Early completion, Client delays, Operational issues
+    duration_type: str = "Non-Recurring"
+    manual_status: Optional[str] = None
+    inactive_reason: Optional[str] = None
 
 class StaffAssignment(BaseModel):
-    name: str
-    contact: str
-    payment_structure: Optional[str] = None
-    task_status: Optional[str] = None
+    user_id: str
+    role_in_project: str
+    payment_amount: float = 0
 
 class TaskCreate(BaseModel):
     title: str
@@ -126,17 +129,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-# ==================== PROFIT CALCULATIONS (FROM FLOWCHART) ====================
+# ==================== PROFIT CALCULATIONS ====================
 
 def calculate_profits(contract_value: float, staff_cost: float, commission: float, tax: float, admin_fee: float, overhead_cost: float):
-    """
-    From flowchart:
-    - Target Profit = 30% x Contract Value
-    - Actual Profit = Contract Value - (Staff Cost + Commission + Tax + Admin Fee + Overhead)
-    - Green: Actual >= Target
-    - Orange: 0 < Actual < Target  
-    - Red: Actual < 0
-    """
     target_profit = 0.30 * contract_value
     actual_profit = contract_value - (staff_cost + commission + tax + admin_fee + overhead_cost)
     
@@ -150,24 +145,22 @@ def calculate_profits(contract_value: float, staff_cost: float, commission: floa
     return target_profit, actual_profit, profit_status
 
 def calculate_contract_status(start_date: str, end_date: str, manual_status: str = None):
-    """
-    From flowchart:
-    - Auto: Active on start, Expired on end
-    - Manual override: Inactive (with reason)
-    """
     if manual_status == "inactive":
         return "Inactive"
     
     now = datetime.utcnow()
     
     if start_date and end_date:
-        start = datetime.fromisoformat(start_date.replace('Z', '+00:00')) if isinstance(start_date, str) else start_date
-        end = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if isinstance(end_date, str) else end_date
-        
-        if now > end:
-            return "Expired"
-        elif now >= start:
-            return "Active"
+        try:
+            start = datetime.fromisoformat(start_date.replace('Z', '+00:00')) if isinstance(start_date, str) else start_date
+            end = datetime.fromisoformat(end_date.replace('Z', '+00:00')) if isinstance(end_date, str) else end_date
+            
+            if now > end:
+                return "Expired"
+            elif now >= start:
+                return "Active"
+        except:
+            pass
     
     return "Pending"
 
@@ -185,77 +178,23 @@ async def startup_db_client():
     await db.comments.create_index("task_id")
     await db.activities.create_index([("created_at", -1)])
     
-    # Create default CEO if not exists
-    existing_ceo = await db.users.find_one({"email": "sadi@arc.com"})
+    # ONLY create default CEO - no other mock users
+    existing_ceo = await db.users.find_one({"email": "ceo@arc.com"})
     if not existing_ceo:
         ceo_user = {
             "id": str(uuid.uuid4()),
-            "email": "sadi@arc.com",
-            "password": get_password_hash("12345678"),
-            "name": "Sadi (CEO)",
+            "email": "ceo@arc.com",
+            "password": get_password_hash("admin123"),
+            "name": "CEO Administrator",
             "role": "ceo",
             "department": "Executive",
             "is_active": True,
+            "is_approved": True,
             "created_at": datetime.utcnow(),
-            "avatar": f"https://ui-avatars.com/api/?name=Sadi+CEO&background=B22222&color=fff"
+            "avatar": f"https://ui-avatars.com/api/?name=CEO&background=B22222&color=fff&bold=true"
         }
         await db.users.insert_one(ceo_user)
-        print("Default CEO created: sadi@arc.com / 12345678")
-    
-    # Create Finance Officer (assigned by CEO as per flowchart)
-    existing_finance = await db.users.find_one({"email": "maureen.bangu@ar-consurt-world.com"})
-    if not existing_finance:
-        finance_user = {
-            "id": str(uuid.uuid4()),
-            "email": "maureen.bangu@ar-consurt-world.com",
-            "password": get_password_hash("12345678"),
-            "name": "Maureen Bangu",
-            "role": "finance",
-            "department": "Finance",
-            "is_active": True,
-            "created_at": datetime.utcnow(),
-            "avatar": f"https://ui-avatars.com/api/?name=Maureen+Bangu&background=B8860B&color=fff"
-        }
-        await db.users.insert_one(finance_user)
-        print("Finance officer created")
-    
-    # Create Operations & Quality Officer (assigned by CEO as per flowchart)
-    existing_ops = await db.users.find_one({"email": "juma.h.kasele@gmail.com"})
-    if not existing_ops:
-        ops_user = {
-            "id": str(uuid.uuid4()),
-            "email": "juma.h.kasele@gmail.com",
-            "password": get_password_hash("11223344"),
-            "name": "Juma H. Kasele",
-            "role": "operations",
-            "department": "Operations & Quality",
-            "is_active": True,
-            "created_at": datetime.utcnow(),
-            "avatar": f"https://ui-avatars.com/api/?name=Juma+Kasele&background=03624C&color=fff"
-        }
-        await db.users.insert_one(ops_user)
-        print("Operations officer created")
-    
-    # Create sample workers
-    sample_workers = [
-        {"name": "John Mwamba", "email": "john.mwamba@arc.com"},
-        {"name": "Grace Kimaro", "email": "grace.kimaro@arc.com"},
-        {"name": "Peter Massawe", "email": "peter.massawe@arc.com"},
-    ]
-    for worker in sample_workers:
-        existing = await db.users.find_one({"email": worker["email"]})
-        if not existing:
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()),
-                "email": worker["email"],
-                "password": get_password_hash("12345678"),
-                "name": worker["name"],
-                "role": "worker",
-                "department": "Staff",
-                "is_active": True,
-                "created_at": datetime.utcnow(),
-                "avatar": f"https://ui-avatars.com/api/?name={worker['name'].replace(' ', '+')}&background=666&color=fff"
-            })
+        print("Default CEO created: ceo@arc.com / admin123")
 
 # ==================== API ROUTES ====================
 
@@ -265,8 +204,9 @@ async def health_check():
 
 # ==================== AUTH ROUTES ====================
 
-@app.post("/api/auth/register")
-async def register(user_data: UserCreate):
+@app.post("/api/auth/signup")
+async def signup(user_data: UserSignup):
+    """Anyone can sign up - they become workers pending CEO approval"""
     existing = await db.users.find_one({"email": user_data.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -277,12 +217,13 @@ async def register(user_data: UserCreate):
         "email": user_data.email.lower(),
         "password": get_password_hash(user_data.password),
         "name": user_data.name,
-        "role": "worker",  # All new registrations start as workers, CEO assigns roles
-        "department": user_data.department or "Staff",
+        "role": "worker",  # All signups start as workers
+        "department": "Staff",
         "phone": user_data.phone,
         "is_active": True,
+        "is_approved": True,  # Auto-approved, CEO can change roles later
         "created_at": datetime.utcnow(),
-        "avatar": f"https://ui-avatars.com/api/?name={user_data.name.replace(' ', '+')}&background=666&color=fff"
+        "avatar": f"https://ui-avatars.com/api/?name={user_data.name.replace(' ', '+')}&background=3B82F6&color=fff"
     }
     await db.users.insert_one(user)
     
@@ -296,7 +237,8 @@ async def register(user_data: UserCreate):
             "name": user["name"],
             "role": user["role"],
             "avatar": user["avatar"]
-        }
+        },
+        "message": "Account created! You can now log in."
     }
 
 @app.post("/api/auth/login")
@@ -306,7 +248,7 @@ async def login(credentials: UserLogin):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     if not user.get("is_active", True):
-        raise HTTPException(status_code=403, detail="Account is deactivated")
+        raise HTTPException(status_code=403, detail="Account is deactivated. Contact your administrator.")
     
     token = create_access_token({"sub": user["id"]})
     return {
@@ -344,7 +286,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         }
     }
 
-# ==================== USER MANAGEMENT (CEO ASSIGNS ROLES) ====================
+# ==================== USER MANAGEMENT ====================
 
 @app.get("/api/users")
 async def get_users(current_user: dict = Depends(get_current_user)):
@@ -373,36 +315,9 @@ async def get_users(current_user: dict = Depends(get_current_user)):
         })
     return users
 
-@app.post("/api/users")
-async def create_user(user_data: UserCreate, current_user: dict = Depends(get_current_user)):
-    """CEO or Operations can add new workers"""
-    if current_user["role"] not in ["ceo", "operations"]:
-        raise HTTPException(status_code=403, detail="Only CEO and Operations can create users")
-    
-    existing = await db.users.find_one({"email": user_data.email.lower()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    user_id = str(uuid.uuid4())
-    user = {
-        "id": user_id,
-        "email": user_data.email.lower(),
-        "password": get_password_hash(user_data.password),
-        "name": user_data.name,
-        "role": "worker",  # New users start as workers
-        "department": user_data.department or "Staff",
-        "phone": user_data.phone,
-        "is_active": True,
-        "created_at": datetime.utcnow(),
-        "avatar": f"https://ui-avatars.com/api/?name={user_data.name.replace(' ', '+')}&background=666&color=fff"
-    }
-    await db.users.insert_one(user)
-    
-    return {"id": user_id, "message": "User created successfully"}
-
 @app.put("/api/users/{user_id}/assign-role")
 async def assign_role(user_id: str, assignment: RoleAssignment, current_user: dict = Depends(get_current_user)):
-    """CEO assigns Finance Officer or Operations Officer roles"""
+    """CEO assigns roles (Finance Officer, Operations Officer, or Worker)"""
     if current_user["role"] != "ceo":
         raise HTTPException(status_code=403, detail="Only CEO can assign roles")
     
@@ -413,25 +328,16 @@ async def assign_role(user_id: str, assignment: RoleAssignment, current_user: di
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Update avatar color based on role
-    avatar_colors = {
-        "finance": "B8860B",
-        "operations": "03624C",
-        "worker": "666666"
-    }
+    avatar_colors = {"finance": "B8860B", "operations": "22C55E", "worker": "3B82F6"}
     new_avatar = f"https://ui-avatars.com/api/?name={user['name'].replace(' ', '+')}&background={avatar_colors[assignment.new_role]}&color=fff"
     
-    await db.users.update_one(
-        {"id": user_id}, 
-        {"$set": {"role": assignment.new_role, "avatar": new_avatar}}
-    )
+    await db.users.update_one({"id": user_id}, {"$set": {"role": assignment.new_role, "avatar": new_avatar}})
     
-    # Log activity
     await db.activities.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
         "user_name": current_user["name"],
-        "action": f"assigned_{assignment.new_role}_role",
+        "action": f"assigned {assignment.new_role} role to",
         "entity_type": "user",
         "entity_id": user_id,
         "entity_name": user["name"],
@@ -453,21 +359,18 @@ async def toggle_user_status(user_id: str, current_user: dict = Depends(get_curr
     await db.users.update_one({"id": user_id}, {"$set": {"is_active": new_status}})
     return {"id": user_id, "is_active": new_status}
 
-# ==================== CONTRACT ROUTES (FLOWCHART BASED) ====================
+# ==================== CONTRACT ROUTES ====================
 
 @app.get("/api/contracts")
 async def get_contracts(current_user: dict = Depends(get_current_user)):
-    """Get all contracts - CEO sees all, Finance/Operations see assigned"""
     contracts = []
     async for contract in db.contracts.find({}).sort("created_at", -1):
-        # Recalculate status
         contract["project_status"] = calculate_contract_status(
             contract.get("project_start_date"),
             contract.get("project_end_date"),
             contract.get("manual_status")
         )
         
-        # Get task stats
         total_tasks = await db.tasks.count_documents({"contract_id": contract["id"]})
         completed_tasks = await db.tasks.count_documents({"contract_id": contract["id"], "status": "done"})
         
@@ -482,179 +385,183 @@ async def get_contracts(current_user: dict = Depends(get_current_user)):
 
 @app.post("/api/contracts")
 async def create_contract(contract_data: ContractCreate, current_user: dict = Depends(get_current_user)):
-    """Finance Officer creates new contract (as per flowchart)"""
-    if current_user["role"] not in ["ceo", "finance"]:
-        raise HTTPException(status_code=403, detail="Only Finance Officer can create contracts")
+    """CEO creates contracts with client details"""
+    if current_user["role"] != "ceo":
+        raise HTTPException(status_code=403, detail="Only CEO can create contracts")
     
-    # Auto-generate contract number (as per flowchart)
     year = datetime.now().year
     count = await db.contracts.count_documents({}) + 1
     contract_number = f"ARC-{year}-{str(count).zfill(4)}"
-    
-    # Auto-calculate profits (as per flowchart)
-    target_profit, actual_profit, profit_status = calculate_profits(
-        contract_data.contract_value,
-        contract_data.staff_cost,
-        contract_data.commission,
-        contract_data.tax,
-        contract_data.admin_fee,
-        contract_data.overhead_cost
-    )
     
     contract_id = str(uuid.uuid4())
     contract = {
         "id": contract_id,
         "contract_number": contract_number,
+        "client_name": contract_data.client_name,
+        "project_name": contract_data.project_name,
+        "project_type": contract_data.project_type,
+        "description": contract_data.description,
         "contract_value": contract_data.contract_value,
-        "staff_count": contract_data.staff_count,
-        "tax": contract_data.tax,
-        "overhead_cost": contract_data.overhead_cost,
-        "commission": contract_data.commission,
-        "admin_fee": contract_data.admin_fee,
-        "staff_cost": contract_data.staff_cost,
-        "target_profit": target_profit,
-        "actual_profit": actual_profit,
-        "profit_status": profit_status,
+        "staff_count": 0,
+        "tax": 0,
+        "overhead_cost": 0,
+        "commission": 0,
+        "admin_fee": 0,
+        "staff_cost": 0,
+        "target_profit": contract_data.contract_value * 0.30,
+        "actual_profit": contract_data.contract_value,
+        "profit_status": "green",
         "project_status": "Pending",
-        "finance_officer_id": current_user["id"],
-        "finance_officer_name": contract_data.finance_officer_name or current_user["name"],
-        "operations_officer_id": None,
-        "operations_officer_name": None,
-        "project_type": None,
-        "duration_type": None,
-        "project_start_date": None,
-        "project_end_date": None,
+        "project_start_date": contract_data.start_date,
+        "project_end_date": contract_data.end_date,
+        "duration_type": "Non-Recurring",
         "manual_status": None,
         "inactive_reason": None,
         "staff_list": [],
+        "created_by": current_user["id"],
+        "created_by_name": current_user["name"],
+        "finance_allocated": False,
+        "operations_configured": False,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
     await db.contracts.insert_one(contract)
     
-    # Log activity
     await db.activities.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
         "user_name": current_user["name"],
-        "action": "created_contract",
+        "action": "created contract",
         "entity_type": "contract",
         "entity_id": contract_id,
-        "entity_name": contract_number,
+        "entity_name": f"{contract_number} - {contract_data.client_name}",
         "created_at": datetime.utcnow()
     })
     
-    return {
-        "id": contract_id, 
-        "contract_number": contract_number,
-        "target_profit": target_profit,
-        "actual_profit": actual_profit,
-        "profit_status": profit_status,
-        "message": "Contract created successfully"
-    }
+    return {"id": contract_id, "contract_number": contract_number, "message": "Contract created successfully"}
 
-@app.get("/api/contracts/{contract_id}")
-async def get_contract(contract_id: str, current_user: dict = Depends(get_current_user)):
+@app.put("/api/contracts/{contract_id}/finance")
+async def allocate_finance(contract_id: str, finance_data: FinanceAllocation, current_user: dict = Depends(get_current_user)):
+    """Finance Officer allocates costs"""
+    if current_user["role"] not in ["ceo", "finance"]:
+        raise HTTPException(status_code=403, detail="Only Finance Officer can allocate costs")
+    
     contract = await db.contracts.find_one({"id": contract_id})
-    if not contract:
-        # Try by contract number
-        contract = await db.contracts.find_one({"contract_number": contract_id})
     if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
     
-    contract["_id"] = str(contract["_id"])
-    contract["project_status"] = calculate_contract_status(
-        contract.get("project_start_date"),
-        contract.get("project_end_date"),
-        contract.get("manual_status")
+    target_profit, actual_profit, profit_status = calculate_profits(
+        contract["contract_value"],
+        finance_data.staff_cost,
+        finance_data.commission,
+        finance_data.tax,
+        finance_data.admin_fee,
+        finance_data.overhead_cost
     )
-    return contract
+    
+    await db.contracts.update_one({"id": contract_id}, {"$set": {
+        "staff_count": finance_data.staff_count,
+        "tax": finance_data.tax,
+        "overhead_cost": finance_data.overhead_cost,
+        "commission": finance_data.commission,
+        "admin_fee": finance_data.admin_fee,
+        "staff_cost": finance_data.staff_cost,
+        "target_profit": target_profit,
+        "actual_profit": actual_profit,
+        "profit_status": profit_status,
+        "finance_allocated": True,
+        "finance_officer_id": current_user["id"],
+        "finance_officer_name": current_user["name"],
+        "updated_at": datetime.utcnow()
+    }})
+    
+    await db.activities.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "user_name": current_user["name"],
+        "action": "allocated finances for",
+        "entity_type": "contract",
+        "entity_id": contract_id,
+        "entity_name": contract["contract_number"],
+        "created_at": datetime.utcnow()
+    })
+    
+    return {"message": "Finance allocation saved", "actual_profit": actual_profit, "profit_status": profit_status}
 
 @app.put("/api/contracts/{contract_id}/operations")
-async def update_contract_operations(contract_id: str, ops_data: OperationsSetup, current_user: dict = Depends(get_current_user)):
-    """Operations Officer configures project execution (as per flowchart)"""
+async def update_operations(contract_id: str, ops_data: OperationsSetup, current_user: dict = Depends(get_current_user)):
+    """Operations Officer configures project execution"""
     if current_user["role"] not in ["ceo", "operations"]:
         raise HTTPException(status_code=403, detail="Only Operations Officer can configure execution")
     
     contract = await db.contracts.find_one({"id": contract_id})
     if not contract:
-        contract = await db.contracts.find_one({"contract_number": contract_id})
-    if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
     
-    # Calculate project status
     project_status = calculate_contract_status(
         ops_data.project_start_date,
         ops_data.project_end_date,
         ops_data.manual_status
     )
     
-    updates = {
+    await db.contracts.update_one({"id": contract_id}, {"$set": {
         "project_start_date": ops_data.project_start_date,
         "project_end_date": ops_data.project_end_date,
-        "project_type": ops_data.project_type,
         "duration_type": ops_data.duration_type,
-        "operations_officer_id": current_user["id"],
-        "operations_officer_name": ops_data.operations_officer_name or current_user["name"],
         "manual_status": ops_data.manual_status,
         "inactive_reason": ops_data.inactive_reason if ops_data.manual_status == "inactive" else None,
         "project_status": project_status,
+        "operations_configured": True,
+        "operations_officer_id": current_user["id"],
+        "operations_officer_name": current_user["name"],
         "updated_at": datetime.utcnow()
-    }
+    }})
     
-    await db.contracts.update_one({"id": contract["id"]}, {"$set": updates})
-    
-    # Log activity
     await db.activities.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
         "user_name": current_user["name"],
-        "action": "configured_operations",
+        "action": "configured operations for",
         "entity_type": "contract",
-        "entity_id": contract["id"],
+        "entity_id": contract_id,
         "entity_name": contract["contract_number"],
         "created_at": datetime.utcnow()
     })
     
     return {"message": "Operations configuration saved", "project_status": project_status}
 
-@app.post("/api/contracts/{contract_id}/staff")
-async def add_staff_to_contract(contract_id: str, staff: StaffAssignment, current_user: dict = Depends(get_current_user)):
-    """Add staff to contract (as per flowchart)"""
+@app.post("/api/contracts/{contract_id}/assign-staff")
+async def assign_staff_to_contract(contract_id: str, assignment: StaffAssignment, current_user: dict = Depends(get_current_user)):
+    """Assign a worker to a contract"""
     if current_user["role"] not in ["ceo", "operations"]:
-        raise HTTPException(status_code=403, detail="Only Operations Officer can assign staff")
+        raise HTTPException(status_code=403, detail="Only CEO or Operations can assign staff")
     
     contract = await db.contracts.find_one({"id": contract_id})
     if not contract:
-        contract = await db.contracts.find_one({"contract_number": contract_id})
-    if not contract:
         raise HTTPException(status_code=404, detail="Contract not found")
+    
+    user = await db.users.find_one({"id": assignment.user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     
     staff_entry = {
         "id": str(uuid.uuid4()),
-        "name": staff.name,
-        "contact": staff.contact,
-        "payment_structure": staff.payment_structure,
-        "task_status": staff.task_status or "Pending",
-        "added_at": datetime.utcnow().isoformat()
+        "user_id": assignment.user_id,
+        "user_name": user["name"],
+        "user_avatar": user.get("avatar"),
+        "role_in_project": assignment.role_in_project,
+        "payment_amount": assignment.payment_amount,
+        "assigned_at": datetime.utcnow().isoformat()
     }
     
-    await db.contracts.update_one(
-        {"id": contract["id"]},
-        {"$push": {"staff_list": staff_entry}}
-    )
+    await db.contracts.update_one({"id": contract_id}, {"$push": {"staff_list": staff_entry}})
     
-    return {"message": "Staff added successfully", "staff": staff_entry}
+    return {"message": "Staff assigned successfully", "staff": staff_entry}
 
 # ==================== TASK ROUTES ====================
 
 @app.get("/api/tasks")
-async def get_tasks(
-    contract_id: Optional[str] = None,
-    assigned_to: Optional[str] = None,
-    status: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
+async def get_tasks(contract_id: Optional[str] = None, assigned_to: Optional[str] = None, status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     query = {}
     if contract_id:
         query["contract_id"] = contract_id
@@ -670,16 +577,12 @@ async def get_tasks(
         if task.get("assigned_to"):
             user = await db.users.find_one({"id": task["assigned_to"]})
             if user:
-                task["assigned_user"] = {
-                    "id": user["id"],
-                    "name": user["name"],
-                    "avatar": user.get("avatar")
-                }
+                task["assigned_user"] = {"id": user["id"], "name": user["name"], "avatar": user.get("avatar")}
         
-        if task.get("contract_id"):
-            contract = await db.contracts.find_one({"id": task["contract_id"]})
-            if contract:
-                task["contract_number"] = contract["contract_number"]
+        contract = await db.contracts.find_one({"id": task["contract_id"]})
+        if contract:
+            task["contract_number"] = contract["contract_number"]
+            task["project_name"] = contract.get("project_name")
         
         task["comment_count"] = await db.comments.count_documents({"task_id": task["id"]})
         tasks.append(task)
@@ -711,7 +614,7 @@ async def create_task(task_data: TaskCreate, current_user: dict = Depends(get_cu
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
         "user_name": current_user["name"],
-        "action": "created_task",
+        "action": "created task",
         "entity_type": "task",
         "entity_id": task_id,
         "entity_name": task_data.title,
@@ -738,9 +641,9 @@ async def update_task(task_id: str, updates: TaskUpdate, current_user: dict = De
     
     await db.tasks.update_one({"id": task_id}, {"$set": update_data})
     
-    action = "updated_task"
+    action = "updated task"
     if new_status and new_status != old_status:
-        action = f"moved_task_to_{new_status}"
+        action = f"moved task to {new_status}"
     
     await db.activities.insert_one({
         "id": str(uuid.uuid4()),
@@ -776,11 +679,7 @@ async def get_comments(task_id: str, current_user: dict = Depends(get_current_us
         comment["_id"] = str(comment["_id"])
         user = await db.users.find_one({"id": comment["user_id"]})
         if user:
-            comment["user"] = {
-                "id": user["id"],
-                "name": user["name"],
-                "avatar": user.get("avatar")
-            }
+            comment["user"] = {"id": user["id"], "name": user["name"], "avatar": user.get("avatar")}
         comments.append(comment)
     return comments
 
@@ -800,118 +699,64 @@ async def add_comment(task_id: str, comment_data: CommentCreate, current_user: d
     }
     await db.comments.insert_one(comment)
     
-    await db.activities.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": current_user["id"],
-        "user_name": current_user["name"],
-        "action": "commented_on_task",
-        "entity_type": "comment",
-        "entity_id": comment_id,
-        "entity_name": task["title"],
-        "contract_id": task["contract_id"],
-        "created_at": datetime.utcnow()
-    })
-    
     return {"id": comment_id, "message": "Comment added successfully"}
 
-# ==================== DASHBOARD ROUTES (CEO EXECUTIVE DASHBOARD) ====================
+# ==================== DASHBOARD ROUTES ====================
 
 @app.get("/api/activities")
-async def get_activities(limit: int = 50, contract_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    query = {}
-    if contract_id:
-        query["contract_id"] = contract_id
-    
+async def get_activities(limit: int = 50, current_user: dict = Depends(get_current_user)):
     activities = []
-    async for activity in db.activities.find(query).sort("created_at", -1).limit(limit):
+    async for activity in db.activities.find({}).sort("created_at", -1).limit(limit):
         activity["_id"] = str(activity["_id"])
         activities.append(activity)
     return activities
 
 @app.get("/api/dashboard/stats")
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
-    """Executive Dashboard Stats (as per flowchart)"""
     total_contracts = await db.contracts.count_documents({})
     active_contracts = await db.contracts.count_documents({"project_status": "Active"})
     pending_contracts = await db.contracts.count_documents({"project_status": "Pending"})
     
-    # Financial summary
-    pipeline = [
-        {"$group": {
-            "_id": None,
-            "total_value": {"$sum": "$contract_value"},
-            "total_target_profit": {"$sum": "$target_profit"},
-            "total_actual_profit": {"$sum": "$actual_profit"}
-        }}
-    ]
+    pipeline = [{"$group": {"_id": None, "total_value": {"$sum": "$contract_value"}, "total_target_profit": {"$sum": "$target_profit"}, "total_actual_profit": {"$sum": "$actual_profit"}}}]
     financial = await db.contracts.aggregate(pipeline).to_list(1)
     financial_data = financial[0] if financial else {"total_value": 0, "total_target_profit": 0, "total_actual_profit": 0}
     
-    # Profit status breakdown
     green_count = await db.contracts.count_documents({"profit_status": "green"})
     orange_count = await db.contracts.count_documents({"profit_status": "orange"})
     red_count = await db.contracts.count_documents({"profit_status": "red"})
     
-    # Task stats
     total_tasks = await db.tasks.count_documents({})
     completed_tasks = await db.tasks.count_documents({"status": "done"})
     in_progress_tasks = await db.tasks.count_documents({"status": "in_progress"})
-    overdue_tasks = await db.tasks.count_documents({
-        "due_date": {"$lt": datetime.utcnow()},
-        "status": {"$ne": "done"}
-    })
+    overdue_tasks = await db.tasks.count_documents({"due_date": {"$lt": datetime.utcnow()}, "status": {"$ne": "done"}})
     
     total_users = await db.users.count_documents({"is_active": True})
     
-    # User's personal stats
     my_tasks = await db.tasks.count_documents({"assigned_to": current_user["id"]})
     my_completed = await db.tasks.count_documents({"assigned_to": current_user["id"], "status": "done"})
     
     return {
-        "contracts": {
-            "total": total_contracts,
-            "active": active_contracts,
-            "pending": pending_contracts,
-            "total_value": financial_data.get("total_value", 0),
-            "total_target_profit": financial_data.get("total_target_profit", 0),
-            "total_actual_profit": financial_data.get("total_actual_profit", 0)
-        },
-        "profit_status": {
-            "green": green_count,
-            "orange": orange_count,
-            "red": red_count
-        },
-        "tasks": {
-            "total": total_tasks,
-            "completed": completed_tasks,
-            "in_progress": in_progress_tasks,
-            "overdue": overdue_tasks,
-            "completion_rate": round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
-        },
-        "team": {
-            "total_users": total_users
-        },
-        "my_stats": {
-            "total_tasks": my_tasks,
-            "completed": my_completed,
-            "completion_rate": round((my_completed / my_tasks * 100) if my_tasks > 0 else 0, 1)
-        }
+        "contracts": {"total": total_contracts, "active": active_contracts, "pending": pending_contracts, "total_value": financial_data.get("total_value", 0), "total_target_profit": financial_data.get("total_target_profit", 0), "total_actual_profit": financial_data.get("total_actual_profit", 0)},
+        "profit_status": {"green": green_count, "orange": orange_count, "red": red_count},
+        "tasks": {"total": total_tasks, "completed": completed_tasks, "in_progress": in_progress_tasks, "overdue": overdue_tasks, "completion_rate": round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)},
+        "team": {"total_users": total_users},
+        "my_stats": {"total_tasks": my_tasks, "completed": my_completed, "completion_rate": round((my_completed / my_tasks * 100) if my_tasks > 0 else 0, 1)}
     }
 
 @app.get("/api/dashboard/my-tasks")
 async def get_my_tasks(current_user: dict = Depends(get_current_user)):
     tasks = []
-    async for task in db.tasks.find({"assigned_to": current_user["id"], "status": {"$ne": "done"}}).sort("due_date", 1):
+    async for task in db.tasks.find({"assigned_to": current_user["id"]}).sort("due_date", 1):
         task["_id"] = str(task["_id"])
         contract = await db.contracts.find_one({"id": task["contract_id"]})
         if contract:
             task["contract_number"] = contract["contract_number"]
+            task["project_name"] = contract.get("project_name")
         tasks.append(task)
     return tasks
 
 @app.get("/api/dashboard/team-performance")
 async def get_team_performance(current_user: dict = Depends(get_current_user)):
-    """CEO views team performance (as per flowchart)"""
     if current_user["role"] not in ["ceo", "operations"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
@@ -920,11 +765,7 @@ async def get_team_performance(current_user: dict = Depends(get_current_user)):
         total = await db.tasks.count_documents({"assigned_to": user["id"]})
         completed = await db.tasks.count_documents({"assigned_to": user["id"], "status": "done"})
         in_progress = await db.tasks.count_documents({"assigned_to": user["id"], "status": "in_progress"})
-        overdue = await db.tasks.count_documents({
-            "assigned_to": user["id"],
-            "due_date": {"$lt": datetime.utcnow()},
-            "status": {"$ne": "done"}
-        })
+        overdue = await db.tasks.count_documents({"assigned_to": user["id"], "due_date": {"$lt": datetime.utcnow()}, "status": {"$ne": "done"}})
         
         team_stats.append({
             "id": user["id"],
