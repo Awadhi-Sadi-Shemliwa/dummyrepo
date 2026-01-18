@@ -127,37 +127,69 @@ class ARCAPITester:
             self.log_result("Get All Users", False, str(data))
             return []
 
-    def test_create_project(self):
-        """Test project creation"""
-        project_data = {
-            'name': f'Test Project {datetime.now().strftime("%H%M%S")}',
-            'description': 'Automated test project for API testing',
-            'client_name': 'Test Client Ltd',
-            'project_type': 'Insurance',
-            'contract_value': 50000.0,
-            'start_date': datetime.now().isoformat(),
-            'end_date': None
+    def test_create_contract(self):
+        """Test contract creation (Finance Officer role)"""
+        contract_data = {
+            'contract_value': 100000000.0,  # 100M TZS
+            'staff_count': 5,
+            'tax': 5000000.0,
+            'overhead_cost': 8000000.0,
+            'commission': 3000000.0,
+            'admin_fee': 2000000.0,
+            'staff_cost': 15000000.0
         }
         
-        success, data = self.make_request('POST', 'projects', project_data, 200)
+        success, data = self.make_request('POST', 'contracts', contract_data, 200)
         if success and 'id' in data:
-            self.created_resources['projects'].append(data['id'])
-            self.log_result("Create Project", True)
-            return data['id']
+            self.created_resources['contracts'].append(data['id'])
+            # Verify auto-generated contract number format (ARC-YEAR-XXXX)
+            contract_number = data.get('contract_number', '')
+            year = datetime.now().year
+            expected_format = f"ARC-{year}-"
+            if contract_number.startswith(expected_format):
+                self.log_result("Create Contract (with auto-generated number)", True)
+                print(f"   Contract Number: {contract_number}")
+                print(f"   Target Profit: {data.get('target_profit', 0):,.0f} TZS")
+                print(f"   Actual Profit: {data.get('actual_profit', 0):,.0f} TZS")
+                print(f"   Profit Status: {data.get('profit_status', 'unknown')}")
+                return data['id']
+            else:
+                self.log_result("Create Contract", False, f"Invalid contract number format: {contract_number}")
+                return None
         else:
-            self.log_result("Create Project", False, str(data))
+            self.log_result("Create Contract", False, str(data))
             return None
 
-    def test_get_projects(self):
-        """Test get all projects"""
-        success, data = self.make_request('GET', 'projects')
+    def test_get_contracts(self):
+        """Test get all contracts"""
+        success, data = self.make_request('GET', 'contracts')
         if success and isinstance(data, list):
-            self.log_result("Get All Projects", True)
-            print(f"   Found {len(data)} projects")
+            self.log_result("Get All Contracts", True)
+            print(f"   Found {len(data)} contracts")
             return data
         else:
-            self.log_result("Get All Projects", False, str(data))
+            self.log_result("Get All Contracts", False, str(data))
             return []
+
+    def test_operations_setup(self, contract_id: str):
+        """Test operations configuration (Operations Officer role)"""
+        ops_data = {
+            'project_start_date': '2025-01-15',
+            'project_end_date': '2025-06-15',
+            'project_type': 'Insurance',
+            'duration_type': 'Non-Recurring',
+            'manual_status': None,
+            'inactive_reason': None
+        }
+        
+        success, data = self.make_request('PUT', f'contracts/{contract_id}/operations', ops_data)
+        if success:
+            self.log_result("Operations Setup", True)
+            print(f"   Project Status: {data.get('project_status', 'unknown')}")
+            return True
+        else:
+            self.log_result("Operations Setup", False, str(data))
+            return False
 
     def test_create_task(self, project_id: str, assigned_to: str = None):
         """Test task creation"""
