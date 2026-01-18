@@ -191,16 +191,15 @@ class ARCAPITester:
             self.log_result("Operations Setup", False, str(data))
             return False
 
-    def test_create_task(self, project_id: str, assigned_to: str = None):
+    def test_create_task(self, contract_id: str, assigned_to: str = None):
         """Test task creation"""
         task_data = {
             'title': f'Test Task {datetime.now().strftime("%H%M%S")}',
             'description': 'Automated test task for API testing',
-            'project_id': project_id,
+            'contract_id': contract_id,
             'assigned_to': assigned_to,
             'priority': 'high',
-            'due_date': datetime.now().isoformat(),
-            'estimated_hours': 8.0
+            'due_date': datetime.now().isoformat()
         }
         
         success, data = self.make_request('POST', 'tasks', task_data, 200)
