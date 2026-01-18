@@ -272,23 +272,28 @@ class ARCAPITester:
                 self.log_result("Get Team Performance", False, str(data))
                 return []
 
-    def test_assign_role(self, user_id: str, new_role: str):
-        """Test role assignment (CEO only)"""
-        success, data = self.make_request('PUT', f'users/{user_id}/assign-role', {
-            'user_id': user_id,
-            'new_role': new_role
-        })
-        if success:
-            self.log_result(f"Assign Role ({new_role})", True)
-            return True
+    def test_create_user(self):
+        """Test user creation (CEO/Operations only)"""
+        user_data = {
+            'name': f'Test User {datetime.now().strftime("%H%M%S")}',
+            'email': f'testuser{datetime.now().strftime("%H%M%S")}@arc-test.com',
+            'password': 'TestPass123!',
+            'department': 'Testing'
+        }
+        
+        success, data = self.make_request('POST', 'users', user_data, 200)
+        if success and 'id' in data:
+            self.created_resources['users'].append(data['id'])
+            self.log_result("Create User", True)
+            return data['id']
         else:
-            # This might fail for non-CEO users, which is expected
-            if self.current_user and self.current_user.get('role') != 'ceo':
-                self.log_result(f"Assign Role ({new_role})", True, "Access denied as expected for non-CEO user")
-                return True
+            # This might fail for non-CEO/Operations users, which is expected
+            if self.current_user and self.current_user.get('role') not in ['ceo', 'operations']:
+                self.log_result("Create User", True, "Access denied as expected for non-CEO/Operations user")
+                return None
             else:
-                self.log_result(f"Assign Role ({new_role})", False, str(data))
-                return False
+                self.log_result("Create User", False, str(data))
+                return None
 
     def test_activities(self):
         """Test activities endpoint"""
