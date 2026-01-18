@@ -369,6 +369,13 @@ class ARCAPITester:
                 if comment_id:
                     self.test_get_comments(task_id)
             
+            # Test role assignment (CEO only)
+            if self.current_user.get('role') == 'ceo' and users:
+                # Find a worker to test role assignment
+                worker_users = [u for u in users if u.get('role') == 'worker']
+                if worker_users:
+                    self.test_assign_role(worker_users[0]['id'], 'finance')
+            
             # Test role-specific features
             self.test_team_performance()
             self.test_create_user()
